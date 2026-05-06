@@ -4,7 +4,9 @@ import dev.erland.zipbuildserver.worker.CommandExecutionRequest;
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
 import dev.erland.zipbuildserver.worker.CommandExecutor;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
 
+@Alternative
 @ApplicationScoped
 public class DockerCommandExecutor implements CommandExecutor {
     @Override

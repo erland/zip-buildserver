@@ -3,6 +3,7 @@ package dev.erland.zipbuildserver.worker.fake;
 import dev.erland.zipbuildserver.worker.CommandExecutionRequest;
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
 import dev.erland.zipbuildserver.worker.CommandExecutor;
+import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -10,18 +11,23 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
+@ApplicationScoped
 public final class FakeCommandExecutor implements CommandExecutor {
     private final Map<String, Deque<CommandExecutionResult>> resultsByLabel = new HashMap<>();
 
-    public FakeCommandExecutor returns(CommandExecutionResult result) {
+    public synchronized FakeCommandExecutor returns(CommandExecutionResult result) {
         resultsByLabel
                 .computeIfAbsent(result.commandLabel(), ignored -> new ArrayDeque<>())
                 .addLast(result);
         return this;
     }
 
+    public synchronized void reset() {
+        resultsByLabel.clear();
+    }
+
     @Override
-    public CommandExecutionResult execute(CommandExecutionRequest request) {
+    public synchronized CommandExecutionResult execute(CommandExecutionRequest request) {
         request.resolvedWorkingDirectory();
 
         Deque<CommandExecutionResult> configuredResults = resultsByLabel.get(request.commandLabel());

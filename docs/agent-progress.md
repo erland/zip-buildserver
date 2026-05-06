@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 12 completed. Execution abstractions are in place with a deterministic fake executor and Docker executor skeleton.
+Step 13 completed. Fake verification execution is wired through the run service with command-result persistence, excerpts, and initial failure classification.
 
 ## Steps
 
@@ -18,7 +18,7 @@ Step 12 completed. Execution abstractions are in place with a deterministic fake
 - [x] Step 10: Implement Run Creation and State Machine
 - [x] Step 11: Implement Worker Image
 - [x] Step 12: Implement Execution Abstraction
-- [ ] Step 13: Implement Fake Verification Execution
+- [x] Step 13: Implement Fake Verification Execution
 - [ ] Step 14: Implement Docker-Based Execution
 - [ ] Step 15: Implement Artifact Storage
 - [ ] Step 16: Implement Frontend Session and Upload Flow
@@ -657,3 +657,61 @@ Known follow-ups:
 
 - Step 13 should wire the fake executor into verification execution.
 - Step 14 should replace the Docker skeleton with real worker-container execution.
+
+
+### Step 13: Implement Fake Verification Execution
+
+Status: completed.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/application/run/VerificationExecutionService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/run/LogExcerptService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/run/FailureClassificationService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/run/VerificationRunService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/worker/fake/FakeCommandExecutor.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/worker/docker/DockerCommandExecutor.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/api/run/RunResourceTest.java`
+- `docs/agent-progress.md`
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/java/dev/erland/zipbuildserver/application/run/VerificationExecutionService.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/application/run/LogExcerptService.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/application/run/FailureClassificationService.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/worker/fake/FakeCommandExecutor.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/api/run/RunResourceTest.java",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+java_files = list(Path("backend/src/main/java").rglob("*.java")) + list(Path("backend/src/test/java").rglob("*.java"))
+for path in java_files:
+    text = path.read_text()
+    assert text.count("{") == text.count("}"), f"brace mismatch: {path}"
+
+print("static checks passed")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run because Maven is not installed in this environment. Run locally with:
+
+```bash
+cd backend
+mvn test
+```
+
+Known follow-ups:
+
+- Step 14 should replace the Docker executor skeleton with real Docker worker-container execution.
+- Artifact storage for full logs remains intentionally deferred to Step 15.

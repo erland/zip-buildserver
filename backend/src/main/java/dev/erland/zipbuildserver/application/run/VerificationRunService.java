@@ -41,6 +41,7 @@ public class VerificationRunService {
     private final VerificationCommandResultRepository commandRepository;
     private final ProjectDetectionService projectDetectionService;
     private final VerificationPlanService verificationPlanService;
+    private final VerificationExecutionService executionService;
 
     public VerificationRunService(
             VerificationSessionRepository sessionRepository,
@@ -48,13 +49,15 @@ public class VerificationRunService {
             VerificationRunRepository runRepository,
             VerificationCommandResultRepository commandRepository,
             ProjectDetectionService projectDetectionService,
-            VerificationPlanService verificationPlanService) {
+            VerificationPlanService verificationPlanService,
+            VerificationExecutionService executionService) {
         this.sessionRepository = sessionRepository;
         this.packageRepository = packageRepository;
         this.runRepository = runRepository;
         this.commandRepository = commandRepository;
         this.projectDetectionService = projectDetectionService;
         this.verificationPlanService = verificationPlanService;
+        this.executionService = executionService;
     }
 
     @Transactional
@@ -89,12 +92,13 @@ public class VerificationRunService {
         entity.planId = plan.id();
         entity.requestedPlanId = normalize(request.requestedPlanId());
         entity.networkMode = NetworkMode.valueOf(plan.networkMode().name());
-        entity.summary = "Run queued. Execution is not implemented until a later delivery step.";
+        entity.summary = "Run queued for fake verification execution.";
         entity.startedAt = null;
         entity.completedAt = null;
         entity.durationMillis = null;
 
         runRepository.persist(entity);
+        executionService.execute(entity, sourcePackage, plan);
         return toResponse(entity);
     }
 
@@ -121,14 +125,27 @@ public class VerificationRunService {
         List<String> commandLabels = commands.stream()
                 .map(command -> command.commandLabel)
                 .toList();
+        List<String> focusAreas = commands.stream()
+                .filter(command -> command.status != CheckStatus.PASSED)
+                .map(command -> command.failureMessage == null || command.failureMessage.isBlank()
+                        ? command.commandLabel
+                        : command.commandLabel + ": " + command.failureMessage)
+                .toList();
+        if (focusAreas.isEmpty()) {
+            focusAreas = List.of("All fake verification commands completed successfully.");
+        }
         return new RunSummaryResponse(
                 entity.id,
                 entity.status,
                 entity.summary,
                 entity.planId,
-                null,
+                commands.stream()
+                        .filter(command -> command.status == CheckStatus.FAILED || command.status == CheckStatus.TIMED_OUT)
+                        .map(command -> command.failureMessage)
+                        .findFirst()
+                        .orElse(null),
                 commandLabels,
-                List.of("Execution service and command results are introduced in later steps."),
+                focusAreas,
                 false);
     }
 
@@ -193,7 +210,7 @@ public class VerificationRunService {
 
     private List<VerificationCommandResultEntity> commandsFor(UUID runId) {
         return commandRepository.list("runId", runId).stream()
-                .sorted(Comparator.comparing(command -> command.commandLabel))
+                .sorted(Comparator.comparing((VerificationCommandResultEntity command) -> command.startedAt).thenComparing(command -> command.commandLabel))
                 .toList();
     }
 

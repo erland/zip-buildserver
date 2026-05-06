@@ -5,18 +5,32 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 
+import dev.erland.zipbuildserver.worker.CommandExecutionResult;
+import dev.erland.zipbuildserver.worker.fake.FakeCommandExecutor;
+import jakarta.inject.Inject;
+
 import io.quarkus.test.junit.QuarkusTest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import java.time.Duration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 class RunResourceTest {
+    @Inject
+    FakeCommandExecutor fakeCommandExecutor;
+
+    @BeforeEach
+    void resetFakeExecutor() {
+        fakeCommandExecutor.reset();
+    }
+
     @Test
-    void createsQueuedRunAndReturnsSummary() throws IOException {
+    void createsRunAndExecutesFakeVerification() throws IOException {
         String sessionId = given()
                 .contentType("application/json")
                 .body("{}")
@@ -48,9 +62,9 @@ class RunResourceTest {
                 .body("id", notNullValue())
                 .body("sessionId", equalTo(sessionId))
                 .body("sourcePackageId", equalTo(packageId))
-                .body("status", equalTo("QUEUED"))
+                .body("status", equalTo("PASSED"))
                 .body("planId", equalTo("node-default"))
-                .body("commands", hasSize(0))
+                .body("commands", hasSize(3))
                 .extract().path("id");
 
         given()
@@ -58,8 +72,63 @@ class RunResourceTest {
                 .then()
                 .statusCode(200)
                 .body("runId", equalTo(runId))
-                .body("status", equalTo("QUEUED"))
-                .body("planId", equalTo("node-default"));
+                .body("status", equalTo("PASSED"))
+                .body("planId", equalTo("node-default"))
+                .body("commandsRun", hasSize(3));
+    }
+
+
+    @Test
+    void fakeFailurePersistsCommandResultsAndSummary() throws IOException {
+        fakeCommandExecutor.returns(CommandExecutionResult.failed(
+                "Install dependencies",
+                1,
+                Duration.ofMillis(25),
+                "",
+                "npm ERR dependency resolution failed",
+                "Dependency installation failed."));
+
+        String sessionId = given()
+                .contentType("application/json")
+                .body("{}")
+                .when().post("/api/sessions")
+                .then()
+                .statusCode(200)
+                .extract().path("id");
+
+        Path zip = createNodeZip();
+
+        String packageId = given()
+                .multiPart("file", "node-project.zip", zip.toFile(), "application/zip")
+                .when().post("/api/sessions/{sessionId}/packages", sessionId)
+                .then()
+                .statusCode(201)
+                .body("status", equalTo("ACCEPTED"))
+                .extract().path("id");
+
+        String runId = given()
+                .contentType("application/json")
+                .body("""
+                        {
+                          "packageId": "%s"
+                        }
+                        """.formatted(packageId))
+                .when().post("/api/sessions/{sessionId}/runs", sessionId)
+                .then()
+                .statusCode(201)
+                .body("status", equalTo("FAILED"))
+                .body("commands", hasSize(3))
+                .body("commands[0].status", equalTo("FAILED"))
+                .body("commands[1].status", equalTo("SKIPPED"))
+                .extract().path("id");
+
+        given()
+                .when().get("/api/runs/{runId}/summary", runId)
+                .then()
+                .statusCode(200)
+                .body("runId", equalTo(runId))
+                .body("status", equalTo("FAILED"))
+                .body("primaryFailure", equalTo("Dependency installation failed."));
     }
 
     @Test
