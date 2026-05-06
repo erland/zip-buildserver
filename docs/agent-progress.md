@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 11 completed. The initial Node/Maven worker image and local build script are in place.
+Step 12 completed. Execution abstractions are in place with a deterministic fake executor and Docker executor skeleton.
 
 ## Steps
 
@@ -17,7 +17,7 @@ Step 11 completed. The initial Node/Maven worker image and local build script ar
 - [x] Step 9: Implement Verification Plan Configuration
 - [x] Step 10: Implement Run Creation and State Machine
 - [x] Step 11: Implement Worker Image
-- [ ] Step 12: Implement Execution Abstraction
+- [x] Step 12: Implement Execution Abstraction
 - [ ] Step 13: Implement Fake Verification Execution
 - [ ] Step 14: Implement Docker-Based Execution
 - [ ] Step 15: Implement Artifact Storage
@@ -610,3 +610,50 @@ Known follow-ups:
 
 - Step 12 should add the command execution abstraction and fake executor.
 - Step 14 should wire real Docker-based command execution to this worker image.
+
+
+### Step 12 log
+
+Changed files:
+
+```text
+backend/src/main/java/dev/erland/zipbuildserver/worker/CommandExecutor.java
+backend/src/main/java/dev/erland/zipbuildserver/worker/CommandExecutionRequest.java
+backend/src/main/java/dev/erland/zipbuildserver/worker/CommandExecutionResult.java
+backend/src/main/java/dev/erland/zipbuildserver/worker/fake/FakeCommandExecutor.java
+backend/src/main/java/dev/erland/zipbuildserver/worker/docker/DockerCommandExecutor.java
+backend/src/test/java/dev/erland/zipbuildserver/worker/CommandExecutionRequestTest.java
+backend/src/test/java/dev/erland/zipbuildserver/worker/FakeCommandExecutorTest.java
+```
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/java/dev/erland/zipbuildserver/worker/CommandExecutor.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/worker/CommandExecutionRequest.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/worker/CommandExecutionResult.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/worker/fake/FakeCommandExecutor.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/worker/docker/DockerCommandExecutor.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/worker/FakeCommandExecutorTest.java",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+print("Step 12 required files are present and backend/pom.xml is valid XML")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run in the assistant environment because Maven is not installed.
+
+Known follow-ups:
+
+- Step 13 should wire the fake executor into verification execution.
+- Step 14 should replace the Docker skeleton with real worker-container execution.
