@@ -1,16 +1,31 @@
-# Agent delivery / ChatGPT zip exchange artifacts
-.chatgpt-zips/
-*.zip
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
 
-# Common build/cache outputs
-node_modules/
+# Logs
+*.log
+
+# Java / Maven
 target/
-build/
+.mvn/wrapper/maven-wrapper.jar
+
+# Node / frontend
+node_modules/
 dist/
 coverage/
-.next/
-.vite/
-.gradle/
-out/
-*.tsbuildinfo
-.DS_Store
+
+# Environment and local data
+.env
+.env.local
+/data/
+workspaces/
+packages/
+artifacts/
+
+# Build artifacts
+*.class
+*.jar
+*.war
+*.zip
