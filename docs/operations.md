@@ -115,3 +115,32 @@ npm run build
 ## Retention and cleanup
 
 Artifact and package retention configuration exists, but scheduled retention cleanup is implemented in a later delivery step.
+
+## Retention cleanup
+
+The backend includes scheduled retention cleanup for retained packages, artifacts, workspaces, and old closed-session metadata.
+
+Default retention settings:
+
+```bash
+ZIP_BUILDSERVER_RETENTION_CLEANUP_ENABLED=true
+ZIP_BUILDSERVER_RETENTION_CLEANUP_INTERVAL=24h
+ZIP_BUILDSERVER_PACKAGE_RETENTION_DAYS=7
+ZIP_BUILDSERVER_ARTIFACT_RETENTION_DAYS=14
+ZIP_BUILDSERVER_SESSION_RETENTION_DAYS=90
+ZIP_BUILDSERVER_WORKSPACE_CLEANUP_GRACE_MINUTES=60
+```
+
+Cleanup behavior:
+
+- Expired uploaded package files are deleted from storage while package metadata is retained until session metadata expires.
+- Expired artifact files and their artifact references are removed.
+- Old workspace directories are removed after the workspace cleanup grace period.
+- Closed sessions older than the session retention period are deleted with their associated metadata according to database cascade rules.
+- Cleanup events are recorded as system audit events when any retained data is removed.
+
+For local troubleshooting, disable the schedule with:
+
+```bash
+ZIP_BUILDSERVER_RETENTION_CLEANUP_ENABLED=false
+```

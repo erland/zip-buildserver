@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 19 completed. Static API token authentication and basic access control are available for API endpoints.
+Step 20 completed. Scheduled retention cleanup removes expired package files, artifacts, old workspaces, and expired closed-session metadata.
 
 ## Steps
 
@@ -25,7 +25,7 @@ Step 19 completed. Static API token authentication and basic access control are 
 - [x] Step 17: Implement Frontend Run Flow
 - [x] Step 18: Add Assistant-Friendly API and OpenAPI Refinement
 - [x] Step 19: Add Authentication and Basic Access Control
-- [ ] Step 20: Add Retention Cleanup
+- [x] Step 20: Add Retention Cleanup
 - [ ] Step 21: Add End-to-End Docker Verification
 - [ ] Step 22: Complete Documentation and Release Readiness
 
@@ -1151,3 +1151,68 @@ Known follow-ups:
 
 - Step 20 should add scheduled retention cleanup.
 - Stronger multi-user authorization and artifact-level access control remain future hardening work.
+
+
+### Step 20: Add Retention Cleanup
+
+Status: completed.
+
+Architecture pass:
+
+- Added a backend retention application service responsible for cleanup decisions and audit logging.
+- Added a scheduled wrapper so cleanup can run periodically while remaining disabled in tests.
+- Kept package metadata after package-file deletion so historical run records remain readable until session metadata expires.
+- Added retention configuration to application defaults, Docker Compose, `.env.example`, and operations documentation.
+
+Changed files:
+
+- `backend/pom.xml`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/retention/RetentionCleanupService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/retention/RetentionCleanupSummary.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/retention/ScheduledRetentionCleanup.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/application/retention/RetentionCleanupServiceTest.java`
+- `backend/src/main/resources/application.properties`
+- `.env.example`
+- `docker-compose.yml`
+- `docs/operations.md`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Added `RetentionCleanupServiceTest` covering expired artifact removal and expired package-file cleanup while preserving source package metadata.
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/java/dev/erland/zipbuildserver/application/retention/RetentionCleanupService.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/application/retention/ScheduledRetentionCleanup.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/application/retention/RetentionCleanupServiceTest.java",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+print("Step 20 static checks passed")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run because Maven is not installed in this execution environment.
+
+Run locally with:
+
+```bash
+cd backend
+mvn test
+```
+
+Known follow-ups:
+
+- Step 21 should add end-to-end Docker verification fixtures and a local verification script.
+- Stronger retention policies for multi-user deployments remain future hardening work.
