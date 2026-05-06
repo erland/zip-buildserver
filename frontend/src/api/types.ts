@@ -58,3 +58,78 @@ export interface SourcePackage {
   createdAt: string;
   projectDetection: ProjectDetectionSummary | null;
 }
+
+
+export type CheckStatus = 'PASSED' | 'FAILED' | 'SKIPPED' | 'TIMED_OUT' | 'CANCELLED' | 'NOT_APPLICABLE' | 'INTERNAL_ERROR';
+
+export interface RunCommand {
+  id: string;
+  commandLabel: string;
+  workingDirectory: string;
+  commandDisplay: string;
+  status: CheckStatus;
+  exitCode: number | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  durationMillis: number | null;
+  logExcerpt: string | null;
+  failureCategory: string | null;
+  failureMessage: string | null;
+  stdoutArtifactRef: string | null;
+  stderrArtifactRef: string | null;
+}
+
+export interface VerificationRun {
+  id: string;
+  sessionId: string;
+  sourcePackageId: string;
+  status: RunStatus;
+  planId: string | null;
+  requestedPlanId: string | null;
+  networkMode: string | null;
+  summary: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  durationMillis: number | null;
+  commands: RunCommand[];
+}
+
+export interface RunListResponse {
+  runs: VerificationRun[];
+}
+
+export interface CreateRunRequest {
+  packageId: string;
+  requestedPlanId?: string;
+}
+
+export interface RunSummary {
+  runId: string;
+  status: RunStatus;
+  summary: string | null;
+  planId: string | null;
+  primaryFailure: string | null;
+  commandsRun: string[];
+  suggestedFocus: string[];
+  partial: boolean;
+}
+
+export interface ArtifactReference {
+  id: string;
+  runId: string;
+  type: string;
+  sizeBytes: number;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface ArtifactListResponse {
+  artifacts: ArtifactReference[];
+}
+
+export interface ArtifactContent {
+  id: string;
+  runId: string;
+  type: string;
+  content: string;
+}

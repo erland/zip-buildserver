@@ -11,4 +11,4 @@ npm run build
 npm run dev
 ```
 
-The Step 16 frontend supports creating verification sessions and uploading source-code zip packages. Starting verification runs and polling results are implemented in later delivery steps.
+The Step 17 frontend supports creating verification sessions, uploading source-code zip packages, starting verification runs, polling run status, viewing command results, reviewing failure summaries, inspecting log excerpts, and listing retained artifacts.

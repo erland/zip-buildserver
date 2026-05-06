@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom';
 import { AboutPage } from './pages/AboutPage';
 import { HomePage } from './pages/HomePage';
 import { PlansPage } from './pages/PlansPage';
+import { RunPage } from './pages/RunPage';
 import { SessionPage } from './pages/SessionPage';
 import styles from './styles/App.module.css';
 
@@ -39,6 +40,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/sessions/:sessionId" element={<SessionPage />} />
+          <Route path="/runs/:runId" element={<RunPage />} />
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/about" element={<AboutPage />} />
         </Routes>

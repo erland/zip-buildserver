@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 16 completed. The frontend can create verification sessions, load session details, and upload source-code zip packages through API hooks and UI components.
+Step 17 completed. The frontend can start verification runs after package upload, poll run status, show command-level results, display failure summaries and log excerpts, and list retained artifacts.
 
 ## Steps
 
@@ -22,7 +22,7 @@ Step 16 completed. The frontend can create verification sessions, load session d
 - [x] Step 14: Implement Docker-Based Execution
 - [x] Step 15: Implement Artifact Storage
 - [x] Step 16: Implement Frontend Session and Upload Flow
-- [ ] Step 17: Implement Frontend Run Flow
+- [x] Step 17: Implement Frontend Run Flow
 - [ ] Step 18: Add Assistant-Friendly API and OpenAPI Refinement
 - [ ] Step 19: Add Authentication and Basic Access Control
 - [ ] Step 20: Add Retention Cleanup
@@ -901,4 +901,96 @@ npm run build
 Known follow-ups:
 
 - Step 17 should add run creation, polling, run status, command results, failure summaries, log excerpts, and artifacts to the frontend.
+
+
+### Step 17: Implement Frontend Run Flow
+
+Status: completed.
+
+Architecture pass:
+
+- Added frontend API functions and TanStack Query hooks for creating runs, polling run details, reading run summaries, listing session runs, and retrieving artifacts.
+- Added a run report page routed at `/runs/:runId`.
+- Added focused UI components for run status, command results, failure summaries, log excerpts, artifact listing, and polling status links.
+- Updated the session page so a successful package upload starts a verification run and navigates to the run report.
+- Kept assistant-specific APIs, authentication, cleanup, and end-to-end Docker verification out of scope for later steps.
+
+Changed files:
+
+- `frontend/src/api/types.ts`
+- `frontend/src/api/runs.ts`
+- `frontend/src/api/artifacts.ts`
+- `frontend/src/components/RunStatusBadge.tsx`
+- `frontend/src/components/CommandResultTable.tsx`
+- `frontend/src/components/CommandResultTable.module.css`
+- `frontend/src/components/FailureSummaryCard.tsx`
+- `frontend/src/components/FailureSummaryCard.module.css`
+- `frontend/src/components/LogExcerptPanel.tsx`
+- `frontend/src/components/LogExcerptPanel.module.css`
+- `frontend/src/components/ArtifactList.tsx`
+- `frontend/src/components/ArtifactList.module.css`
+- `frontend/src/components/PollingRunStatus.tsx`
+- `frontend/src/components/PackageUploadDropzone.tsx`
+- `frontend/src/pages/SessionPage.tsx`
+- `frontend/src/pages/RunPage.tsx`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/README.md`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Updated `App.test.tsx` to cover uploading a package, starting a run, navigating to the run report, and rendering command/log details from mocked API responses.
+
+Verification:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+
+for path in [
+    "frontend/package.json",
+    "frontend/tsconfig.json",
+    "frontend/tsconfig.app.json",
+    "frontend/tsconfig.node.json",
+]:
+    json.loads(Path(path).read_text())
+
+required = [
+    "frontend/src/api/runs.ts",
+    "frontend/src/api/artifacts.ts",
+    "frontend/src/pages/RunPage.tsx",
+    "frontend/src/components/RunStatusBadge.tsx",
+    "frontend/src/components/CommandResultTable.tsx",
+    "frontend/src/components/FailureSummaryCard.tsx",
+    "frontend/src/components/LogExcerptPanel.tsx",
+    "frontend/src/components/ArtifactList.tsx",
+    "frontend/src/components/PollingRunStatus.tsx",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+print("Step 17 frontend static checks passed")
+PY
+```
+
+Result: passed.
+
+`npm test` and `npm run build` were not run because frontend dependencies are not installed in this environment.
+
+Run locally with:
+
+```bash
+cd frontend
+npm install
+npm test
+npm run build
+```
+
+Known follow-ups:
+
+- Step 18 should add assistant-friendly API endpoints and refine OpenAPI documentation.
+- Authentication and artifact authorization remain for Step 19.
 

@@ -5,6 +5,7 @@ import styles from './PackageUploadDropzone.module.css';
 
 interface PackageUploadDropzoneProps {
   sessionId: string;
+  onUploadSuccess?: (sourcePackageId: string) => void;
 }
 
 function formatBytes(value: number): string {
@@ -19,7 +20,7 @@ function formatBytes(value: number): string {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function PackageUploadDropzone({ sessionId }: PackageUploadDropzoneProps) {
+export function PackageUploadDropzone({ sessionId, onUploadSuccess }: PackageUploadDropzoneProps) {
   const [file, setFile] = useState<File | null>(null);
   const uploadPackage = useUploadPackage();
 
@@ -30,7 +31,8 @@ export function PackageUploadDropzone({ sessionId }: PackageUploadDropzoneProps)
       return;
     }
 
-    await uploadPackage.mutateAsync({ sessionId, file });
+    const uploaded = await uploadPackage.mutateAsync({ sessionId, file });
+    onUploadSuccess?.(uploaded.id);
   }
 
   const uploadedPackage = uploadPackage.data;
