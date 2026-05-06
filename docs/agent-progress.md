@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 18 completed. Assistant-friendly API endpoints and OpenAPI documentation are available for compact verification-session, run-summary, and failed-log-excerpt workflows.
+Step 19 completed. Static API token authentication and basic access control are available for API endpoints.
 
 ## Steps
 
@@ -24,7 +24,7 @@ Step 18 completed. Assistant-friendly API endpoints and OpenAPI documentation ar
 - [x] Step 16: Implement Frontend Session and Upload Flow
 - [x] Step 17: Implement Frontend Run Flow
 - [x] Step 18: Add Assistant-Friendly API and OpenAPI Refinement
-- [ ] Step 19: Add Authentication and Basic Access Control
+- [x] Step 19: Add Authentication and Basic Access Control
 - [ ] Step 20: Add Retention Cleanup
 - [ ] Step 21: Add End-to-End Docker Verification
 - [ ] Step 22: Complete Documentation and Release Readiness
@@ -1069,3 +1069,85 @@ Known follow-ups:
 
 - Step 19 should add static token authentication and basic access control.
 - Package upload remains on the existing multipart endpoint until a future upload-session assistant flow is added.
+
+
+
+### Step 19: Add Authentication and Basic Access Control
+
+Status: completed.
+
+Architecture pass:
+
+- Added a JAX-RS authentication filter under `security/` so API access control is centralized.
+- Kept `/api/health` public for health checks and `/q/openapi` public for local OpenAPI inspection.
+- Protected API endpoints with a static bearer token by default.
+- Preserved existing endpoint tests by disabling authentication in the default test profile and adding a dedicated auth-enabled test profile.
+- Avoided putting the API token into frontend code; UI deployments should use same-origin/proxy handling or disable auth only for private local development.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/security/ApiTokenAuthenticationFilter.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/security/TokenAuthenticationService.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/security/ApiTokenAuthenticationFilterTest.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/security/TokenAuthenticationServiceTest.java`
+- `backend/src/main/resources/application.properties`
+- `.env.example`
+- `docker-compose.yml`
+- `docs/operations.md`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Added `TokenAuthenticationServiceTest` for bearer-token validation.
+- Added `ApiTokenAuthenticationFilterTest` for public health access, unauthorized protected access, wrong-token rejection, and valid-token access.
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/java/dev/erland/zipbuildserver/security/ApiTokenAuthenticationFilter.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/security/TokenAuthenticationService.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/security/ApiTokenAuthenticationFilterTest.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/security/TokenAuthenticationServiceTest.java",
+    "docs/operations.md",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+java_files = list(Path("backend/src/main/java").rglob("*.java")) + list(Path("backend/src/test/java").rglob("*.java"))
+for path in java_files:
+    text = path.read_text()
+    assert text.count("{") == text.count("}"), f"brace mismatch: {path}"
+
+print("static checks passed")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run because Maven is not installed in this environment.
+
+Run locally with:
+
+```bash
+cd backend
+mvn test
+```
+
+Manual verification after starting the backend:
+
+```bash
+curl -i http://localhost:8080/api/sessions
+curl -i -H "Authorization: Bearer $ZIP_BUILDSERVER_API_TOKEN" http://localhost:8080/api/sessions
+```
+
+Known follow-ups:
+
+- Step 20 should add scheduled retention cleanup.
+- Stronger multi-user authorization and artifact-level access control remain future hardening work.
