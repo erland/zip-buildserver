@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 5 completed. Database schema and core domain/persistence foundations are in place.
+Step 6 completed. Session creation, listing, reading, and closing endpoints are in place.
 
 ## Steps
 
@@ -11,7 +11,7 @@ Step 5 completed. Database schema and core domain/persistence foundations are in
 - [x] Step 3: Create Frontend React Project
 - [x] Step 4: Add Docker Compose Development Environment
 - [x] Step 5: Implement Database Schema and Core Entities
-- [ ] Step 6: Implement Session API
+- [x] Step 6: Implement Session API
 - [ ] Step 7: Implement Package Upload and Archive Validation
 - [ ] Step 8: Implement Project Detection
 - [ ] Step 9: Implement Verification Plan Configuration
@@ -297,3 +297,32 @@ Known follow-ups:
 
 - Step 6 should implement the session API on top of the new persistence layer.
 - Database-backed tests use Quarkus Dev Services/Testcontainers and require Docker locally.
+
+
+### Step 6 — Implement Session API
+
+Status: Completed.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/api/ErrorResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/BadRequestExceptionMapper.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/NotFoundExceptionMapper.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/session/CreateSessionRequest.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/session/SessionListResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/session/SessionResource.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/session/SessionResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/NotFoundException.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/VerificationSessionService.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/api/session/SessionResourceTest.java`
+- `docs/agent-progress.md`
+
+Verification:
+
+- Static source checks were run successfully with Python.
+- `mvn test` was not run because Maven is not installed in this environment.
+
+Known follow-ups:
+
+- Package upload, run creation, authentication, and audit events remain for later delivery-plan steps.
+- Database-backed Quarkus tests require Maven and Docker/Testcontainers locally.
