@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 10 completed. Run creation and the initial queued state machine are in place without real command execution.
+Step 11 completed. The initial Node/Maven worker image and local build script are in place.
 
 ## Steps
 
@@ -16,7 +16,7 @@ Step 10 completed. Run creation and the initial queued state machine are in plac
 - [x] Step 8: Implement Project Detection
 - [x] Step 9: Implement Verification Plan Configuration
 - [x] Step 10: Implement Run Creation and State Machine
-- [ ] Step 11: Implement Worker Image
+- [x] Step 11: Implement Worker Image
 - [ ] Step 12: Implement Execution Abstraction
 - [ ] Step 13: Implement Fake Verification Execution
 - [ ] Step 14: Implement Docker-Based Execution
@@ -549,3 +549,64 @@ Known follow-ups:
 - Step 12 should introduce the execution abstraction.
 - Step 13 should wire deterministic fake verification execution.
 
+### Step 11: Implement Worker Image
+
+Status: completed.
+
+Architecture pass:
+
+- Added the first Docker worker image under `worker-images/node-maven/`.
+- Kept command execution and Docker orchestration out of scope for this step.
+- Added a root-level helper script so local operators can build the worker image consistently.
+- Documented manual smoke-check commands for Java, Maven, Node.js, and npm.
+
+Changed files:
+
+- `worker-images/node-maven/Dockerfile`
+- `worker-images/README.md`
+- `scripts/build-worker-image.sh`
+- `scripts/README.md`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- No automated tests were added; this step delivers container image configuration and local build tooling.
+
+Verification:
+
+```bash
+python - <<'PY'
+from pathlib import Path
+required = [
+    "worker-images/node-maven/Dockerfile",
+    "scripts/build-worker-image.sh",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+dockerfile = Path("worker-images/node-maven/Dockerfile").read_text()
+for expected in ["FROM eclipse-temurin:21-jdk-jammy", "maven", "nodejs", "USER worker"]:
+    if expected not in dockerfile:
+        raise SystemExit(f"Missing Dockerfile content: {expected}")
+print("Step 11 static checks passed")
+PY
+```
+
+Result: passed.
+
+Docker was not available in this execution environment, so the worker image was not built here.
+
+Run locally with:
+
+```bash
+./scripts/build-worker-image.sh
+docker run --rm zip-buildserver-worker-node-maven:local java -version
+docker run --rm zip-buildserver-worker-node-maven:local mvn -version
+docker run --rm zip-buildserver-worker-node-maven:local node --version
+docker run --rm zip-buildserver-worker-node-maven:local npm --version
+```
+
+Known follow-ups:
+
+- Step 12 should add the command execution abstraction and fake executor.
+- Step 14 should wire real Docker-based command execution to this worker image.
