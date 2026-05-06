@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 17 completed. The frontend can start verification runs after package upload, poll run status, show command-level results, display failure summaries and log excerpts, and list retained artifacts.
+Step 18 completed. Assistant-friendly API endpoints and OpenAPI documentation are available for compact verification-session, run-summary, and failed-log-excerpt workflows.
 
 ## Steps
 
@@ -23,7 +23,7 @@ Step 17 completed. The frontend can start verification runs after package upload
 - [x] Step 15: Implement Artifact Storage
 - [x] Step 16: Implement Frontend Session and Upload Flow
 - [x] Step 17: Implement Frontend Run Flow
-- [ ] Step 18: Add Assistant-Friendly API and OpenAPI Refinement
+- [x] Step 18: Add Assistant-Friendly API and OpenAPI Refinement
 - [ ] Step 19: Add Authentication and Basic Access Control
 - [ ] Step 20: Add Retention Cleanup
 - [ ] Step 21: Add End-to-End Docker Verification
@@ -994,3 +994,78 @@ Known follow-ups:
 - Step 18 should add assistant-friendly API endpoints and refine OpenAPI documentation.
 - Authentication and artifact authorization remain for Step 19.
 
+
+
+### Step 18: Add Assistant-Friendly API and OpenAPI Refinement
+
+Status: completed.
+
+Architecture pass:
+
+- Added compact assistant-specific DTOs under `api/assistant`.
+- Kept package upload on the existing multipart endpoint so this step only adds assistant session/run/summary workflows.
+- Reused existing session and run application services to preserve run creation and plan-selection behavior.
+- Returned concise failed-check and log-excerpt structures without exposing full logs by default.
+- Documented `/q/openapi` and assistant endpoint contracts in `docs/api-overview.md`.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantVerificationResource.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantCreateSessionRequest.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantCreateRunRequest.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantSessionResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantRunResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantRunSummaryResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantCommandSummaryResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantFailedLogExcerptResponse.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/api/assistant/AssistantVerificationResourceTest.java`
+- `docs/api-overview.md`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Added `AssistantVerificationResourceTest` covering assistant session creation, compact run creation response, assistant summary retrieval, and failed log excerpts.
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/java/dev/erland/zipbuildserver/api/assistant/AssistantVerificationResource.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/api/assistant/AssistantVerificationResourceTest.java",
+    "docs/api-overview.md",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+java_files = list(Path("backend/src/main/java").rglob("*.java")) + list(Path("backend/src/test/java").rglob("*.java"))
+for path in java_files:
+    text = path.read_text()
+    assert text.count("{") == text.count("}"), f"brace mismatch: {path}"
+
+print("static checks passed")
+PY
+```
+
+Result: passed.
+
+`mvn test` and `curl http://localhost:8080/q/openapi` were not run because Maven is not installed and the backend is not running in this environment.
+
+Run locally with:
+
+```bash
+cd backend
+mvn test
+mvn quarkus:dev
+curl http://localhost:8080/q/openapi
+```
+
+Known follow-ups:
+
+- Step 19 should add static token authentication and basic access control.
+- Package upload remains on the existing multipart endpoint until a future upload-session assistant flow is added.
