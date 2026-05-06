@@ -11,4 +11,4 @@ npm run build
 npm run dev
 ```
 
-The initial Step 3 application provides placeholder pages and client scaffolding only. Session, upload, and run workflows are implemented in later delivery steps.
+The Step 16 frontend supports creating verification sessions and uploading source-code zip packages. Starting verification runs and polling results are implemented in later delivery steps.

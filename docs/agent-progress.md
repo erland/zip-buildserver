@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 15 completed. Full stdout/stderr logs are stored as artifacts with opaque IDs, command results reference those artifacts, and API endpoints expose run artifact lists and authorized artifact content retrieval.
+Step 16 completed. The frontend can create verification sessions, load session details, and upload source-code zip packages through API hooks and UI components.
 
 ## Steps
 
@@ -21,7 +21,7 @@ Step 15 completed. Full stdout/stderr logs are stored as artifacts with opaque I
 - [x] Step 13: Implement Fake Verification Execution
 - [x] Step 14: Implement Docker-Based Execution
 - [x] Step 15: Implement Artifact Storage
-- [ ] Step 16: Implement Frontend Session and Upload Flow
+- [x] Step 16: Implement Frontend Session and Upload Flow
 - [ ] Step 17: Implement Frontend Run Flow
 - [ ] Step 18: Add Assistant-Friendly API and OpenAPI Refinement
 - [ ] Step 19: Add Authentication and Basic Access Control
@@ -821,3 +821,84 @@ Known follow-ups:
 
 - Run `cd backend && mvn test` locally to execute Quarkus database-backed tests.
 - Step 20 should implement cleanup for expired artifact files and references.
+
+### Step 16: Implement Frontend Session and Upload Flow
+
+Status: completed.
+
+Architecture pass:
+
+- Added frontend API functions and TanStack Query hooks for session creation, session loading, and package upload.
+- Added a home-page session creation flow that navigates to a session page after successful creation.
+- Added a session page with package upload UI and basic upload result feedback.
+- Kept run creation, polling, command results, and artifact UI out of scope for Step 17.
+- Preserved backend contracts and did not change application source outside the frontend/documentation progress files.
+
+Changed files:
+
+- `frontend/src/api/client.ts`
+- `frontend/src/api/types.ts`
+- `frontend/src/api/sessions.ts`
+- `frontend/src/api/packages.ts`
+- `frontend/src/components/SessionCreateForm.tsx`
+- `frontend/src/components/SessionCreateForm.module.css`
+- `frontend/src/components/PackageUploadDropzone.tsx`
+- `frontend/src/components/PackageUploadDropzone.module.css`
+- `frontend/src/pages/HomePage.tsx`
+- `frontend/src/pages/SessionPage.tsx`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/README.md`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Updated `App.test.tsx` to cover session creation/navigation and package upload UI behavior with mocked API responses.
+
+Verification:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+
+for path in [
+    "frontend/package.json",
+    "frontend/tsconfig.json",
+    "frontend/tsconfig.app.json",
+    "frontend/tsconfig.node.json",
+]:
+    json.loads(Path(path).read_text())
+
+required = [
+    "frontend/src/api/sessions.ts",
+    "frontend/src/api/packages.ts",
+    "frontend/src/components/SessionCreateForm.tsx",
+    "frontend/src/components/PackageUploadDropzone.tsx",
+    "frontend/src/pages/SessionPage.tsx",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+print("Step 16 frontend static checks passed")
+PY
+```
+
+Result: passed.
+
+`npm test` and `npm run build` were not run because frontend dependencies are not installed in this environment.
+
+Run locally with:
+
+```bash
+cd frontend
+npm install
+npm test
+npm run build
+```
+
+Known follow-ups:
+
+- Step 17 should add run creation, polling, run status, command results, failure summaries, log excerpts, and artifacts to the frontend.
+
