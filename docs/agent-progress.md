@@ -2,12 +2,12 @@
 
 ## Current status
 
-Step 1 completed. Repository skeleton and documentation placeholders are initialized.
+Step 2 completed. Backend Quarkus project skeleton is initialized.
 
 ## Steps
 
 - [x] Step 1: Initialize Repository Skeleton
-- [ ] Step 2: Create Backend Quarkus Project
+- [x] Step 2: Create Backend Quarkus Project
 - [ ] Step 3: Create Frontend React Project
 - [ ] Step 4: Add Docker Compose Development Environment
 - [ ] Step 5: Implement Database Schema and Core Entities
@@ -64,3 +64,55 @@ Known follow-ups:
 
 - Step 2 should initialize the Quarkus backend project.
 - Step 3 should initialize the React/Vite frontend project.
+
+
+### Step 2: Create Backend Quarkus Project
+
+Status: completed.
+
+Architecture pass:
+
+- Added a Quarkus Maven backend under `backend/`.
+- Kept database-backed behavior out of scope for this step.
+- Added only a minimal health API so the backend can compile and be smoke-tested.
+- Preserved layer directories for later steps without implementing future behavior.
+
+Changed files:
+
+- `backend/pom.xml`
+- `backend/src/main/resources/application.properties`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/HealthResource.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/api/HealthResourceTest.java`
+- `backend/README.md`
+- `.gitkeep` placeholders under backend layer/resource directories
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Added `HealthResourceTest` using Quarkus JUnit 5 and RestAssured.
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+ET.parse("backend/pom.xml")
+print("backend/pom.xml is valid XML")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run because Maven is not installed in this execution environment.
+
+Run locally with:
+
+```bash
+cd backend
+mvn test
+```
+
+Known follow-ups:
+
+- Step 3 should initialize the React/Vite frontend project.
+- Step 5 should add the real database schema and persistence mapping.
