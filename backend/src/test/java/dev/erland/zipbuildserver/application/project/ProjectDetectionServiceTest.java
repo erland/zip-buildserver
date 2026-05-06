@@ -1,5 +1,6 @@
 package dev.erland.zipbuildserver.application.project;
 
+import dev.erland.zipbuildserver.application.verification.VerificationPlanService;
 import dev.erland.zipbuildserver.domain.model.project.ProjectDetectionSummary;
 import dev.erland.zipbuildserver.domain.model.project.ProjectTechnology;
 import org.junit.jupiter.api.Test;
@@ -15,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProjectDetectionServiceTest {
-    private final ProjectDetectionService service = new ProjectDetectionService();
+    private final ProjectDetectionService service = new ProjectDetectionService(new VerificationPlanService());
 
     @Test
     void detectsMavenProjectAtRoot() throws IOException {

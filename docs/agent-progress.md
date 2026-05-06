@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 8 completed. Project detection for Maven, Node, and backend/frontend multi-project packages is in place.
+Step 9 completed. Server-side verification plan configuration and deterministic plan selection are in place.
 
 ## Steps
 
@@ -14,7 +14,7 @@ Step 8 completed. Project detection for Maven, Node, and backend/frontend multi-
 - [x] Step 6: Implement Session API
 - [x] Step 7: Implement Package Upload and Archive Validation
 - [x] Step 8: Implement Project Detection
-- [ ] Step 9: Implement Verification Plan Configuration
+- [x] Step 9: Implement Verification Plan Configuration
 - [ ] Step 10: Implement Run Creation and State Machine
 - [ ] Step 11: Implement Worker Image
 - [ ] Step 12: Implement Execution Abstraction
@@ -411,3 +411,70 @@ Known follow-ups:
 
 - Step 9 should load server-side verification plan configuration and make plan selection authoritative.
 - Detection currently reports default plan IDs as descriptive selections; Step 9 should replace this with configured plan lookup.
+
+
+### Step 9: Implement Verification Plan Configuration
+
+Status: completed.
+
+Changed files:
+
+- `backend/src/main/resources/verification-plans/node-default.yml`
+- `backend/src/main/resources/verification-plans/maven-default.yml`
+- `backend/src/main/resources/verification-plans/multi-project-default.yml`
+- `backend/src/main/java/dev/erland/zipbuildserver/domain/model/verification/`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/verification/VerificationPlanService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/project/ProjectDetectionService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/verificationplan/VerificationPlanResource.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/verificationplan/VerificationPlanResponse.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/application/verification/VerificationPlanServiceTest.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/application/project/ProjectDetectionServiceTest.java`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Added `VerificationPlanServiceTest` for default plan loading, plan parsing, and technology-based selection.
+- Updated `ProjectDetectionServiceTest` to use configured server-side plan selection.
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/resources/verification-plans/node-default.yml",
+    "backend/src/main/resources/verification-plans/maven-default.yml",
+    "backend/src/main/resources/verification-plans/multi-project-default.yml",
+    "backend/src/main/java/dev/erland/zipbuildserver/application/verification/VerificationPlanService.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/api/verificationplan/VerificationPlanResource.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/application/verification/VerificationPlanServiceTest.java",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+java_files = list(Path("backend/src/main/java").rglob("*.java")) + list(Path("backend/src/test/java").rglob("*.java"))
+for path in java_files:
+    text = path.read_text()
+    assert text.count("{") == text.count("}"), f"brace mismatch: {path}"
+
+print("static checks passed")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run because Maven is not installed in this environment. Run locally with:
+
+```bash
+cd backend
+mvn test
+```
+
+Known follow-ups:
+
+- Step 10 should implement run creation and state-machine behavior using the selected configured verification plans.
+- Command execution remains intentionally deferred to later execution steps.

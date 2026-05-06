@@ -2,7 +2,9 @@ package dev.erland.zipbuildserver.application.project;
 
 import dev.erland.zipbuildserver.domain.model.project.DetectedProject;
 import dev.erland.zipbuildserver.domain.model.project.ProjectDetectionSummary;
+import dev.erland.zipbuildserver.application.verification.VerificationPlanService;
 import dev.erland.zipbuildserver.domain.model.project.ProjectTechnology;
+import dev.erland.zipbuildserver.domain.model.verification.VerificationPlanSelection;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.io.IOException;
@@ -18,6 +20,12 @@ import java.util.zip.ZipInputStream;
 
 @ApplicationScoped
 public class ProjectDetectionService {
+    private final VerificationPlanService verificationPlanService;
+
+    public ProjectDetectionService(VerificationPlanService verificationPlanService) {
+        this.verificationPlanService = verificationPlanService;
+    }
+
     public ProjectDetectionSummary detect(Path zipPath) {
         Set<String> entries = readEntryNames(zipPath);
         List<DetectedProject> projects = new ArrayList<>();
@@ -25,11 +33,10 @@ public class ProjectDetectionService {
         boolean backendMaven = entries.contains("backend/pom.xml");
         boolean frontendNode = entries.contains("frontend/package.json");
         if (backendMaven && frontendNode) {
-            projects.add(new DetectedProject(
+            projects.add(createDetectedProject(
                     ".",
                     ProjectTechnology.MULTI_PROJECT,
                     List.of("backend/pom.xml", "frontend/package.json"),
-                    "multi-project-default",
                     "Detected backend Maven and frontend Node project indicators."));
         }
 
@@ -37,11 +44,10 @@ public class ProjectDetectionService {
             if (isCoveredByMultiProject(pom, projects)) {
                 continue;
             }
-            projects.add(new DetectedProject(
+            projects.add(createDetectedProject(
                     parentPath(pom),
                     ProjectTechnology.MAVEN,
                     List.of(pom),
-                    "maven-default",
                     "Detected Maven project indicator."));
         }
 
@@ -49,11 +55,10 @@ public class ProjectDetectionService {
             if (isCoveredByMultiProject(packageJson, projects)) {
                 continue;
             }
-            projects.add(new DetectedProject(
+            projects.add(createDetectedProject(
                     parentPath(packageJson),
                     ProjectTechnology.NODE,
                     List.of(packageJson),
-                    "node-default",
                     "Detected Node project indicator."));
         }
 
@@ -62,6 +67,21 @@ public class ProjectDetectionService {
             return ProjectDetectionSummary.unsupported("No supported Maven or Node project indicators were detected.");
         }
         return new ProjectDetectionSummary(projects, true, "Detected " + projects.size() + " supported project(s).");
+    }
+
+    private DetectedProject createDetectedProject(
+            String path,
+            ProjectTechnology technology,
+            List<String> buildIndicators,
+            String detectionReason) {
+        DetectedProject detectedProject = new DetectedProject(path, technology, buildIndicators, null, detectionReason);
+        VerificationPlanSelection selection = verificationPlanService.selectPlan(detectedProject);
+        return new DetectedProject(
+                path,
+                technology,
+                buildIndicators,
+                selection.selectedPlanId(),
+                detectionReason + " " + selection.reason());
     }
 
     private Set<String> readEntryNames(Path zipPath) {
