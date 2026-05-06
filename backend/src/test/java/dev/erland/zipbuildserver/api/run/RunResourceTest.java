@@ -4,6 +4,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
 import dev.erland.zipbuildserver.worker.fake.FakeCommandExecutor;
@@ -65,7 +66,26 @@ class RunResourceTest {
                 .body("status", equalTo("PASSED"))
                 .body("planId", equalTo("node-default"))
                 .body("commands", hasSize(3))
+                .body("commands[0].stdoutArtifactRef", notNullValue())
+                .body("commands[0].stderrArtifactRef", notNullValue())
                 .extract().path("id");
+
+        String artifactId = given()
+                .when().get("/api/runs/{runId}/artifacts", runId)
+                .then()
+                .statusCode(200)
+                .body("artifacts", hasSize(6))
+                .body("artifacts[0].id", notNullValue())
+                .body("artifacts[0].sizeBytes", greaterThanOrEqualTo(0))
+                .extract().path("artifacts[0].id");
+
+        given()
+                .when().get("/api/artifacts/{artifactId}", artifactId)
+                .then()
+                .statusCode(200)
+                .body("id", equalTo(artifactId))
+                .body("runId", equalTo(runId))
+                .body("content", notNullValue());
 
         given()
                 .when().get("/api/runs/{runId}/summary", runId)

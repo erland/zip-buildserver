@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 14 completed. Docker-based execution plumbing is implemented behind a configurable executor, with workspace extraction, Docker run command construction, resource limits, timeout handling, log capture, and cleanup.
+Step 15 completed. Full stdout/stderr logs are stored as artifacts with opaque IDs, command results reference those artifacts, and API endpoints expose run artifact lists and authorized artifact content retrieval.
 
 ## Steps
 
@@ -20,7 +20,7 @@ Step 14 completed. Docker-based execution plumbing is implemented behind a confi
 - [x] Step 12: Implement Execution Abstraction
 - [x] Step 13: Implement Fake Verification Execution
 - [x] Step 14: Implement Docker-Based Execution
-- [ ] Step 15: Implement Artifact Storage
+- [x] Step 15: Implement Artifact Storage
 - [ ] Step 16: Implement Frontend Session and Upload Flow
 - [ ] Step 17: Implement Frontend Run Flow
 - [ ] Step 18: Add Assistant-Friendly API and OpenAPI Refinement
@@ -756,3 +756,68 @@ Known follow-ups:
 
 - Full log artifact storage is still deferred to Step 15.
 - Docker socket based execution remains a trusted self-hosted MVP mode and should be hardened later as documented in the delivery plan.
+
+
+### Step 15: Implement Artifact Storage
+
+Status: completed.
+
+Architecture pass:
+
+- Added artifact storage behind `ArtifactStorageService` so execution can persist full command stdout/stderr independently from concise log excerpts.
+- Used existing `artifact_reference` persistence table and opaque artifact UUIDs rather than exposing filesystem paths through API responses.
+- Added read/list API endpoints for retained artifacts while preserving concise run summaries by default.
+- Kept retention cleanup out of scope for this step; expiration timestamps are recorded for Step 20 cleanup.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/storage/ArtifactStorageService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/artifact/ArtifactResource.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/artifact/ArtifactResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/artifact/ArtifactListResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/artifact/ArtifactContentResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/run/VerificationExecutionService.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/api/run/RunResourceTest.java`
+- `backend/src/main/resources/application.properties`
+- `.env.example`
+- `docker-compose.yml`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Updated `RunResourceTest` to assert command artifact references, artifact listing, and artifact content retrieval.
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/java/dev/erland/zipbuildserver/storage/ArtifactStorageService.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/api/artifact/ArtifactResource.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/api/artifact/ArtifactResponse.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/api/artifact/ArtifactListResponse.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/api/artifact/ArtifactContentResponse.java",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+java_files = list(Path("backend/src/main/java").rglob("*.java")) + list(Path("backend/src/test/java").rglob("*.java"))
+for path in java_files:
+    text = path.read_text()
+    assert text.count("{") == text.count("}"), f"brace mismatch: {path}"
+
+print("static checks passed")
+PY
+```
+
+Result: passed.
+
+Known follow-ups:
+
+- Run `cd backend && mvn test` locally to execute Quarkus database-backed tests.
+- Step 20 should implement cleanup for expired artifact files and references.

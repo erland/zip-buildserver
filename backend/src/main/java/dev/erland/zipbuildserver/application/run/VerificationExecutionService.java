@@ -1,6 +1,7 @@
 package dev.erland.zipbuildserver.application.run;
 
 import dev.erland.zipbuildserver.application.project.ProjectDetectionService;
+import dev.erland.zipbuildserver.domain.model.ArtifactType;
 import dev.erland.zipbuildserver.domain.model.CheckStatus;
 import dev.erland.zipbuildserver.domain.model.RunStatus;
 import dev.erland.zipbuildserver.domain.model.project.DetectedProject;
@@ -12,6 +13,7 @@ import dev.erland.zipbuildserver.infrastructure.persistence.entity.VerificationC
 import dev.erland.zipbuildserver.infrastructure.persistence.entity.VerificationRunEntity;
 import dev.erland.zipbuildserver.infrastructure.persistence.repository.VerificationCommandResultRepository;
 import dev.erland.zipbuildserver.infrastructure.persistence.repository.VerificationRunRepository;
+import dev.erland.zipbuildserver.storage.ArtifactStorageService;
 import dev.erland.zipbuildserver.worker.CommandExecutionRequest;
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
 import dev.erland.zipbuildserver.worker.CommandExecutor;
@@ -33,6 +35,7 @@ public class VerificationExecutionService {
     private final LogExcerptService logExcerptService;
     private final FailureClassificationService failureClassificationService;
     private final DockerWorkspaceService workspaceService;
+    private final ArtifactStorageService artifactStorageService;
 
     public VerificationExecutionService(
             VerificationRunRepository runRepository,
@@ -41,7 +44,8 @@ public class VerificationExecutionService {
             CommandExecutor commandExecutor,
             LogExcerptService logExcerptService,
             FailureClassificationService failureClassificationService,
-            DockerWorkspaceService workspaceService) {
+            DockerWorkspaceService workspaceService,
+            ArtifactStorageService artifactStorageService) {
         this.runRepository = runRepository;
         this.commandRepository = commandRepository;
         this.projectDetectionService = projectDetectionService;
@@ -49,6 +53,7 @@ public class VerificationExecutionService {
         this.logExcerptService = logExcerptService;
         this.failureClassificationService = failureClassificationService;
         this.workspaceService = workspaceService;
+        this.artifactStorageService = artifactStorageService;
     }
 
     public void execute(VerificationRunEntity run, SourcePackageEntity sourcePackage, VerificationPlan plan) {
@@ -126,6 +131,8 @@ public class VerificationExecutionService {
         entity.logExcerpt = logExcerptService.excerpt(result.stdout(), result.stderr());
         entity.failureCategory = result.status() == CheckStatus.PASSED ? null : failureClassificationService.category(result);
         entity.failureMessage = result.status() == CheckStatus.PASSED ? null : failureClassificationService.message(result);
+        entity.stdoutArtifactRef = artifactStorageService.storeText(runId, ArtifactType.STDOUT, command.label(), result.stdout()).id;
+        entity.stderrArtifactRef = artifactStorageService.storeText(runId, ArtifactType.STDERR, command.label(), result.stderr()).id;
         commandRepository.persist(entity);
     }
 
