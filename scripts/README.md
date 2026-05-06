@@ -27,3 +27,27 @@ Build the worker image and enable the Docker executor:
 ./scripts/build-worker-image.sh
 ZIP_BUILDSERVER_WORKER_EXECUTOR=docker docker compose up --build
 ```
+
+## End-to-end Docker verification
+
+Run the complete local verification flow with fixture packages:
+
+```bash
+./scripts/verify-local.sh
+```
+
+The script:
+
+1. Builds the local worker image.
+2. Starts Docker Compose with the Docker worker executor enabled.
+3. Creates zip archives from `test-fixtures/`.
+4. Creates sessions, uploads packages, starts runs, and validates expected passed/failed statuses.
+
+The script uses a host bind mount for `/data/zip-buildserver` so worker containers launched by the backend can mount extracted workspaces. It also runs the backend container as `root` during the local E2E flow to avoid Docker socket permission issues on typical developer machines.
+
+Useful overrides:
+
+```bash
+ZIP_BUILDSERVER_API_TOKEN=change-me ./scripts/verify-local.sh
+ZIP_BUILDSERVER_E2E_KEEP_STACK=true ./scripts/verify-local.sh
+```

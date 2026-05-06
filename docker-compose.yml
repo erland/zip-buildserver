@@ -21,6 +21,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: zip-buildserver-api
+    user: ${ZIP_BUILDSERVER_BACKEND_USER:-zipbuildserver}
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,7 +53,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:
-      - zip-buildserver-data:${ZIP_BUILDSERVER_DATA_DIR:-/data/zip-buildserver}
+      - ${ZIP_BUILDSERVER_DATA_HOST_DIR:-zip-buildserver-data}:${ZIP_BUILDSERVER_DATA_DIR:-/data/zip-buildserver}
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/health >/dev/null || exit 1"]

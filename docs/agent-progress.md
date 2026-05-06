@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 20 completed. Scheduled retention cleanup removes expired package files, artifacts, old workspaces, and expired closed-session metadata.
+Step 21 completed. End-to-end Docker verification fixtures and local verification script are available.
 
 ## Steps
 
@@ -26,7 +26,7 @@ Step 20 completed. Scheduled retention cleanup removes expired package files, ar
 - [x] Step 18: Add Assistant-Friendly API and OpenAPI Refinement
 - [x] Step 19: Add Authentication and Basic Access Control
 - [x] Step 20: Add Retention Cleanup
-- [ ] Step 21: Add End-to-End Docker Verification
+- [x] Step 21: Add End-to-End Docker Verification
 - [ ] Step 22: Complete Documentation and Release Readiness
 
 ## Step log
@@ -1216,3 +1216,59 @@ Known follow-ups:
 
 - Step 21 should add end-to-end Docker verification fixtures and a local verification script.
 - Stronger retention policies for multi-user deployments remain future hardening work.
+
+### Step 21: Add End-to-End Docker Verification
+
+Status: completed.
+
+Changed files:
+
+- `scripts/verify-local.sh`
+- `scripts/README.md`
+- `test-fixtures/README.md`
+- `test-fixtures/node-pass/`
+- `test-fixtures/node-fail/`
+- `test-fixtures/maven-pass/`
+- `test-fixtures/maven-fail/`
+- `docker-compose.yml`
+- `.env.example`
+- `docs/agent-progress.md`
+
+Verification:
+
+```bash
+python - <<'PY'
+from pathlib import Path
+required = [
+    "scripts/verify-local.sh",
+    "test-fixtures/node-pass/package.json",
+    "test-fixtures/node-fail/package.json",
+    "test-fixtures/maven-pass/pom.xml",
+    "test-fixtures/maven-fail/pom.xml",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+print("Step 21 required files are present")
+PY
+```
+
+Result: passed.
+
+Docker was not available in this environment, so the full end-to-end verification script was not run here. Run locally with:
+
+```bash
+./scripts/verify-local.sh
+```
+
+Expected outcome:
+
+- Docker Compose stack starts.
+- Fixture packages are zipped at runtime and uploaded.
+- Verification runs execute through the Docker worker.
+- `node-pass` and `maven-pass` return `PASSED`.
+- `node-fail` and `maven-fail` return `FAILED`.
+
+Known follow-ups:
+
+- Step 22 should complete release documentation and readiness checks.
