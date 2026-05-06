@@ -1,0 +1,16 @@
+# Agent delivery / ChatGPT zip exchange artifacts
+.chatgpt-zips/
+*.zip
+
+# Common build/cache outputs
+node_modules/
+target/
+build/
+dist/
+coverage/
+.next/
+.vite/
+.gradle/
+out/
+*.tsbuildinfo
+.DS_Store
