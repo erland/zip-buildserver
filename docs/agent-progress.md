@@ -2,14 +2,14 @@
 
 ## Current status
 
-Step 3 completed. Frontend React/Vite project skeleton is initialized.
+Step 4 completed. Docker Compose development environment is configured.
 
 ## Steps
 
 - [x] Step 1: Initialize Repository Skeleton
 - [x] Step 2: Create Backend Quarkus Project
 - [x] Step 3: Create Frontend React Project
-- [ ] Step 4: Add Docker Compose Development Environment
+- [x] Step 4: Add Docker Compose Development Environment
 - [ ] Step 5: Implement Database Schema and Core Entities
 - [ ] Step 6: Implement Session API
 - [ ] Step 7: Implement Package Upload and Archive Validation
@@ -195,3 +195,54 @@ Known follow-ups:
 - Step 4 should add Docker Compose and container development configuration.
 - Step 16 should implement the real frontend session and upload flow.
 - Step 17 should implement the real frontend run and polling flow.
+
+
+### Step 4: Add Docker Compose Development Environment
+
+Status: completed.
+
+Changed files:
+
+- `docker-compose.yml`
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+- `frontend/nginx.conf`
+- `.env.example`
+- `scripts/dev-up.sh`
+- `scripts/dev-down.sh`
+- `scripts/README.md`
+- `backend/src/main/resources/application.properties`
+- `docs/agent-progress.md`
+
+Verification:
+
+```bash
+test -f docker-compose.yml \
+  && test -f backend/Dockerfile \
+  && test -f frontend/Dockerfile \
+  && test -x scripts/dev-up.sh \
+  && test -x scripts/dev-down.sh \
+  && echo "Step 4 required files are present and scripts are executable"
+```
+
+Result: passed.
+
+Additional verification:
+
+```bash
+docker compose config
+```
+
+Result: not run in this environment because Docker Compose is not available.
+
+Local verification command:
+
+```bash
+docker compose up --build
+```
+
+Known follow-ups:
+
+- Step 5 should add the database schema and core persistence entities.
+- Backend database migrations are still disabled until Step 5 adds the initial schema.
+
