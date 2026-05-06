@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 6 completed. Session creation, listing, reading, and closing endpoints are in place.
+Step 7 completed. Multipart zip package upload, package metadata storage, and archive validation are in place.
 
 ## Steps
 
@@ -12,7 +12,7 @@ Step 6 completed. Session creation, listing, reading, and closing endpoints are 
 - [x] Step 4: Add Docker Compose Development Environment
 - [x] Step 5: Implement Database Schema and Core Entities
 - [x] Step 6: Implement Session API
-- [ ] Step 7: Implement Package Upload and Archive Validation
+- [x] Step 7: Implement Package Upload and Archive Validation
 - [ ] Step 8: Implement Project Detection
 - [ ] Step 9: Implement Verification Plan Configuration
 - [ ] Step 10: Implement Run Creation and State Machine
@@ -326,3 +326,32 @@ Known follow-ups:
 
 - Package upload, run creation, authentication, and audit events remain for later delivery-plan steps.
 - Database-backed Quarkus tests require Maven and Docker/Testcontainers locally.
+
+
+## Step 7 log
+
+Completed package upload and archive validation.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/api/PackageValidationExceptionMapper.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/packageupload/PackageResource.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/packageupload/PackageResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/packageupload/PackageUploadForm.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/PackageValidationException.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/SourcePackageService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/packageupload/ArchiveValidationResult.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/packageupload/ArchiveValidationService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/storage/PackageStorageService.java`
+- `backend/src/main/resources/application.properties`
+- `backend/src/test/java/dev/erland/zipbuildserver/application/packageupload/ArchiveValidationServiceTest.java`
+
+Verification:
+
+- Static file and Java brace checks passed in this environment.
+- `mvn test` was not run because Maven is not installed in this environment.
+
+Known follow-ups:
+
+- Project detection is intentionally deferred to Step 8.
+- Package artifact retrieval and retention cleanup are intentionally deferred to later steps.
