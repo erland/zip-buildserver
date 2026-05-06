@@ -3,6 +3,7 @@
 Local development helpers:
 
 ```bash
+./scripts/build-all.sh
 ./scripts/dev-up.sh
 ./scripts/dev-down.sh
 ./scripts/build-worker-image.sh
@@ -50,4 +51,12 @@ Useful overrides:
 ```bash
 ZIP_BUILDSERVER_API_TOKEN=change-me ./scripts/verify-local.sh
 ZIP_BUILDSERVER_E2E_KEEP_STACK=true ./scripts/verify-local.sh
+```
+
+## Full local build
+
+Run backend tests, frontend tests/build, and worker image build:
+
+```bash
+./scripts/build-all.sh
 ```

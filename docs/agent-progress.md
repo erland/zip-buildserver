@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 21 completed. End-to-end Docker verification fixtures and local verification script are available.
+Step 22 completed. Release documentation and readiness scripts are complete.
 
 ## Steps
 
@@ -27,7 +27,7 @@ Step 21 completed. End-to-end Docker verification fixtures and local verificatio
 - [x] Step 19: Add Authentication and Basic Access Control
 - [x] Step 20: Add Retention Cleanup
 - [x] Step 21: Add End-to-End Docker Verification
-- [ ] Step 22: Complete Documentation and Release Readiness
+- [x] Step 22: Complete Documentation and Release Readiness
 
 ## Step log
 
@@ -1272,3 +1272,84 @@ Expected outcome:
 Known follow-ups:
 
 - Step 22 should complete release documentation and readiness checks.
+
+
+### Step 22: Complete Documentation and Release Readiness
+
+Status: completed.
+
+Architecture pass:
+
+- Completed release-facing documentation without changing application behavior.
+- Added the missing root build verification script referenced by the delivery plan.
+- Kept scope limited to documentation, environment guidance, local verification tooling, and progress tracking.
+
+Changed files:
+
+- `README.md`
+- `docs/security-model.md`
+- `docs/verification-plans.md`
+- `docs/operations.md`
+- `docs/api-overview.md`
+- `.env.example`
+- `scripts/build-all.sh`
+- `scripts/README.md`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Added `scripts/build-all.sh` as the documented local readiness check script.
+
+Verification:
+
+```bash
+bash -n scripts/build-all.sh
+bash -n scripts/verify-local.sh
+python - <<'PY'
+import json
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+required = [
+    "README.md",
+    "docs/security-model.md",
+    "docs/verification-plans.md",
+    "docs/operations.md",
+    "docs/api-overview.md",
+    ".env.example",
+    "scripts/build-all.sh",
+    "scripts/verify-local.sh",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+ET.parse("backend/pom.xml")
+json.loads(Path("frontend/package.json").read_text())
+print("Step 22 static release-readiness checks passed")
+PY
+```
+
+Result: passed.
+
+Full verification was not run in this environment because Maven, npm dependencies, and Docker are not available here.
+
+Run locally with:
+
+```bash
+./scripts/build-all.sh
+./scripts/verify-local.sh
+```
+
+Expected outcome:
+
+- Backend tests pass.
+- Frontend tests and build pass.
+- Worker image builds.
+- Docker Compose stack starts.
+- Fixture packages upload and verify with expected pass/fail statuses.
+
+Known follow-ups:
+
+- The delivery plan is complete.
+- Future hardening should focus on stronger worker isolation, multi-user access control, private registry support, and production deployment guidance.
