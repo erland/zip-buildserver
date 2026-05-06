@@ -2,13 +2,13 @@
 
 ## Current status
 
-Step 2 completed. Backend Quarkus project skeleton is initialized.
+Step 3 completed. Frontend React/Vite project skeleton is initialized.
 
 ## Steps
 
 - [x] Step 1: Initialize Repository Skeleton
 - [x] Step 2: Create Backend Quarkus Project
-- [ ] Step 3: Create Frontend React Project
+- [x] Step 3: Create Frontend React Project
 - [ ] Step 4: Add Docker Compose Development Environment
 - [ ] Step 5: Implement Database Schema and Core Entities
 - [ ] Step 6: Implement Session API
@@ -116,3 +116,82 @@ Known follow-ups:
 
 - Step 3 should initialize the React/Vite frontend project.
 - Step 5 should add the real database schema and persistence mapping.
+
+
+### Step 3: Create Frontend React Project
+
+Status: completed.
+
+Architecture pass:
+
+- Added a Vite React/TypeScript frontend under `frontend/`.
+- Added React Router routes for initial Home, Plans, and About pages.
+- Added TanStack Query wiring at the application root so later API workflows can use query hooks.
+- Added a small API client/types placeholder without implementing session, upload, or run behavior from later steps.
+- Added Vitest and React Testing Library configuration plus a smoke test for the initial app shell.
+
+Changed files:
+
+- `frontend/package.json`
+- `frontend/index.html`
+- `frontend/tsconfig.json`
+- `frontend/tsconfig.app.json`
+- `frontend/tsconfig.node.json`
+- `frontend/vite.config.ts`
+- `frontend/src/main.tsx`
+- `frontend/src/App.tsx`
+- `frontend/src/App.test.tsx`
+- `frontend/src/api/client.ts`
+- `frontend/src/api/types.ts`
+- `frontend/src/components/StatusBadge.tsx`
+- `frontend/src/components/StatusBadge.module.css`
+- `frontend/src/pages/HomePage.tsx`
+- `frontend/src/pages/PlansPage.tsx`
+- `frontend/src/pages/AboutPage.tsx`
+- `frontend/src/pages/Page.module.css`
+- `frontend/src/styles/App.module.css`
+- `frontend/src/styles/global.css`
+- `frontend/src/test/setup.ts`
+- `frontend/README.md`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Added `frontend/src/App.test.tsx` using Vitest and React Testing Library.
+
+Verification:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+
+for path in [
+    "frontend/package.json",
+    "frontend/tsconfig.json",
+    "frontend/tsconfig.app.json",
+    "frontend/tsconfig.node.json",
+]:
+    json.loads(Path(path).read_text())
+print("frontend JSON configuration files are valid")
+PY
+```
+
+Result: passed.
+
+`npm install`, `npm test`, and `npm run build` were not completed in this execution environment. An attempted dependency install did not complete before the execution limit, so generated dependency folders were removed from the returned zip.
+
+Run locally with:
+
+```bash
+cd frontend
+npm install
+npm test
+npm run build
+```
+
+Known follow-ups:
+
+- Step 4 should add Docker Compose and container development configuration.
+- Step 16 should implement the real frontend session and upload flow.
+- Step 17 should implement the real frontend run and polling flow.
