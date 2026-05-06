@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 7 completed. Multipart zip package upload, package metadata storage, and archive validation are in place.
+Step 8 completed. Project detection for Maven, Node, and backend/frontend multi-project packages is in place.
 
 ## Steps
 
@@ -13,7 +13,7 @@ Step 7 completed. Multipart zip package upload, package metadata storage, and ar
 - [x] Step 5: Implement Database Schema and Core Entities
 - [x] Step 6: Implement Session API
 - [x] Step 7: Implement Package Upload and Archive Validation
-- [ ] Step 8: Implement Project Detection
+- [x] Step 8: Implement Project Detection
 - [ ] Step 9: Implement Verification Plan Configuration
 - [ ] Step 10: Implement Run Creation and State Machine
 - [ ] Step 11: Implement Worker Image
@@ -355,3 +355,59 @@ Known follow-ups:
 
 - Project detection is intentionally deferred to Step 8.
 - Package artifact retrieval and retention cleanup are intentionally deferred to later steps.
+
+
+### Step 8: Implement Project Detection
+
+Status: completed.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/application/project/ProjectDetectionService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/domain/model/project/DetectedProject.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/domain/model/project/ProjectDetectionSummary.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/domain/model/project/ProjectTechnology.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/packageupload/PackageResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/SourcePackageService.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/application/project/ProjectDetectionServiceTest.java`
+- `docs/agent-progress.md`
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/java/dev/erland/zipbuildserver/application/project/ProjectDetectionService.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/domain/model/project/DetectedProject.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/application/project/ProjectDetectionServiceTest.java",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+java_files = list(Path("backend/src/main/java").rglob("*.java")) + list(Path("backend/src/test/java").rglob("*.java"))
+for path in java_files:
+    text = path.read_text()
+    assert text.count("{") == text.count("}"), f"brace mismatch: {path}"
+
+print("static checks passed")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run because Maven is not installed in this environment. Run locally with:
+
+```bash
+cd backend
+mvn test
+```
+
+Known follow-ups:
+
+- Step 9 should load server-side verification plan configuration and make plan selection authoritative.
+- Detection currently reports default plan IDs as descriptive selections; Step 9 should replace this with configured plan lookup.

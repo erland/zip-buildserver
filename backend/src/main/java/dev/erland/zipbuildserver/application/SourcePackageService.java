@@ -3,8 +3,10 @@ package dev.erland.zipbuildserver.application;
 import dev.erland.zipbuildserver.api.packageupload.PackageResponse;
 import dev.erland.zipbuildserver.application.packageupload.ArchiveValidationResult;
 import dev.erland.zipbuildserver.application.packageupload.ArchiveValidationService;
+import dev.erland.zipbuildserver.application.project.ProjectDetectionService;
 import dev.erland.zipbuildserver.domain.model.SessionStatus;
 import dev.erland.zipbuildserver.domain.model.SourcePackageStatus;
+import dev.erland.zipbuildserver.domain.model.project.ProjectDetectionSummary;
 import dev.erland.zipbuildserver.infrastructure.persistence.entity.SourcePackageEntity;
 import dev.erland.zipbuildserver.infrastructure.persistence.entity.VerificationSessionEntity;
 import dev.erland.zipbuildserver.infrastructure.persistence.repository.SourcePackageRepository;
@@ -25,16 +27,19 @@ public class SourcePackageService {
     private final SourcePackageRepository packageRepository;
     private final PackageStorageService storageService;
     private final ArchiveValidationService archiveValidationService;
+    private final ProjectDetectionService projectDetectionService;
 
     public SourcePackageService(
             VerificationSessionRepository sessionRepository,
             SourcePackageRepository packageRepository,
             PackageStorageService storageService,
-            ArchiveValidationService archiveValidationService) {
+            ArchiveValidationService archiveValidationService,
+            ProjectDetectionService projectDetectionService) {
         this.sessionRepository = sessionRepository;
         this.packageRepository = packageRepository;
         this.storageService = storageService;
         this.archiveValidationService = archiveValidationService;
+        this.projectDetectionService = projectDetectionService;
     }
 
     @Transactional
@@ -83,6 +88,7 @@ public class SourcePackageService {
     }
 
     private PackageResponse toResponse(SourcePackageEntity entity) {
+        ProjectDetectionSummary detection = detectProjects(entity);
         return new PackageResponse(
                 entity.id,
                 entity.sessionId,
@@ -95,7 +101,15 @@ public class SourcePackageService {
                 entity.storageReference,
                 entity.status,
                 entity.rejectionReason,
-                entity.createdAt);
+                entity.createdAt,
+                detection);
+    }
+
+    private ProjectDetectionSummary detectProjects(SourcePackageEntity entity) {
+        if (entity.status != SourcePackageStatus.ACCEPTED) {
+            return ProjectDetectionSummary.unsupported("Project detection was skipped because the package was rejected.");
+        }
+        return projectDetectionService.detect(Path.of(entity.storageReference));
     }
 
     private String normalizeFilename(String originalFilename) {

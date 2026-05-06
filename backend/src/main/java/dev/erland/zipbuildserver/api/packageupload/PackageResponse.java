@@ -1,6 +1,7 @@
 package dev.erland.zipbuildserver.api.packageupload;
 
 import dev.erland.zipbuildserver.domain.model.SourcePackageStatus;
+import dev.erland.zipbuildserver.domain.model.project.ProjectDetectionSummary;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -16,5 +17,6 @@ public record PackageResponse(
         String storageReference,
         SourcePackageStatus status,
         String rejectionReason,
-        OffsetDateTime createdAt) {
+        OffsetDateTime createdAt,
+        ProjectDetectionSummary projectDetection) {
 }
