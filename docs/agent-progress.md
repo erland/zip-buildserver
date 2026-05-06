@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 9 completed. Server-side verification plan configuration and deterministic plan selection are in place.
+Step 10 completed. Run creation and the initial queued state machine are in place without real command execution.
 
 ## Steps
 
@@ -15,7 +15,7 @@ Step 9 completed. Server-side verification plan configuration and deterministic 
 - [x] Step 7: Implement Package Upload and Archive Validation
 - [x] Step 8: Implement Project Detection
 - [x] Step 9: Implement Verification Plan Configuration
-- [ ] Step 10: Implement Run Creation and State Machine
+- [x] Step 10: Implement Run Creation and State Machine
 - [ ] Step 11: Implement Worker Image
 - [ ] Step 12: Implement Execution Abstraction
 - [ ] Step 13: Implement Fake Verification Execution
@@ -478,3 +478,74 @@ Known follow-ups:
 
 - Step 10 should implement run creation and state-machine behavior using the selected configured verification plans.
 - Command execution remains intentionally deferred to later execution steps.
+
+### Step 10: Implement Run Creation and State Machine
+
+Status: completed.
+
+Architecture pass:
+
+- Added run API DTOs and resources for creating runs, reading runs, reading compact summaries, and listing session runs.
+- Added `VerificationRunService` to validate session/package state, select configured plans, and persist queued runs.
+- Kept real command execution, command result generation, cancellation, and artifacts out of scope for later steps.
+- Preserved the existing package upload and project detection contracts.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/api/run/CreateRunRequest.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/run/RunCommandResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/run/RunListResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/run/RunResource.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/run/RunResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/api/run/RunSummaryResponse.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/run/VerificationRunService.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/api/run/RunResourceTest.java`
+- `docs/agent-progress.md`
+
+Tests added or updated:
+
+- Added `RunResourceTest` for queued run creation, summary retrieval, and rejected-package validation.
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/java/dev/erland/zipbuildserver/api/run/RunResource.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/application/run/VerificationRunService.java",
+    "backend/src/test/java/dev/erland/zipbuildserver/api/run/RunResourceTest.java",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+
+java_files = list(Path("backend/src/main/java").rglob("*.java")) + list(Path("backend/src/test/java").rglob("*.java"))
+for path in java_files:
+    text = path.read_text()
+    assert text.count("{") == text.count("}"), f"brace mismatch: {path}"
+
+print("static checks passed")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run because Maven is not installed in this execution environment.
+
+Run locally with:
+
+```bash
+cd backend
+mvn test
+```
+
+Known follow-ups:
+
+- Step 11 should add the worker image.
+- Step 12 should introduce the execution abstraction.
+- Step 13 should wire deterministic fake verification execution.
+
