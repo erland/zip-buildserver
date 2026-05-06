@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 4 completed. Docker Compose development environment is configured.
+Step 5 completed. Database schema and core domain/persistence foundations are in place.
 
 ## Steps
 
@@ -10,7 +10,7 @@ Step 4 completed. Docker Compose development environment is configured.
 - [x] Step 2: Create Backend Quarkus Project
 - [x] Step 3: Create Frontend React Project
 - [x] Step 4: Add Docker Compose Development Environment
-- [ ] Step 5: Implement Database Schema and Core Entities
+- [x] Step 5: Implement Database Schema and Core Entities
 - [ ] Step 6: Implement Session API
 - [ ] Step 7: Implement Package Upload and Archive Validation
 - [ ] Step 8: Implement Project Detection
@@ -246,3 +246,54 @@ Known follow-ups:
 - Step 5 should add the database schema and core persistence entities.
 - Backend database migrations are still disabled until Step 5 adds the initial schema.
 
+
+
+### Step 5: Implement Database Schema and Core Entities
+
+Status: completed.
+
+Changed files:
+
+- `backend/pom.xml`
+- `backend/src/main/resources/application.properties`
+- `backend/src/main/resources/db/migration/V1__initial_schema.sql`
+- `backend/src/main/java/dev/erland/zipbuildserver/domain/model/`
+- `backend/src/main/java/dev/erland/zipbuildserver/domain/state/`
+- `backend/src/main/java/dev/erland/zipbuildserver/infrastructure/persistence/entity/`
+- `backend/src/main/java/dev/erland/zipbuildserver/infrastructure/persistence/repository/`
+- `backend/src/test/java/dev/erland/zipbuildserver/domain/RunStatusTransitionsTest.java`
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ET.parse("backend/pom.xml")
+required = [
+    "backend/src/main/resources/db/migration/V1__initial_schema.sql",
+    "backend/src/main/java/dev/erland/zipbuildserver/domain/model/RunStatus.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/infrastructure/persistence/entity/VerificationSessionEntity.java",
+    "backend/src/main/java/dev/erland/zipbuildserver/infrastructure/persistence/repository/VerificationSessionRepository.java",
+]
+missing = [path for path in required if not Path(path).exists()]
+if missing:
+    raise SystemExit(f"Missing required files: {missing}")
+print("Step 5 required files are present and backend/pom.xml is valid XML")
+PY
+```
+
+Result: passed.
+
+`mvn test` was not run because Maven is not installed in this environment. Run locally with:
+
+```bash
+cd backend
+mvn test
+```
+
+Known follow-ups:
+
+- Step 6 should implement the session API on top of the new persistence layer.
+- Database-backed tests use Quarkus Dev Services/Testcontainers and require Docker locally.
