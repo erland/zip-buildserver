@@ -3,6 +3,7 @@ package dev.erland.zipbuildserver.worker.fake;
 import dev.erland.zipbuildserver.worker.CommandExecutionRequest;
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
 import dev.erland.zipbuildserver.worker.CommandExecutor;
+import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.Duration;
@@ -11,6 +12,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
+@IfBuildProperty(name = "zip-buildserver.worker.executor", stringValue = "fake", enableIfMissing = true)
 @ApplicationScoped
 public final class FakeCommandExecutor implements CommandExecutor {
     private final Map<String, Deque<CommandExecutionResult>> resultsByLabel = new HashMap<>();

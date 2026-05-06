@@ -2,7 +2,7 @@
 
 ## Current status
 
-Step 13 completed. Fake verification execution is wired through the run service with command-result persistence, excerpts, and initial failure classification.
+Step 14 completed. Docker-based execution plumbing is implemented behind a configurable executor, with workspace extraction, Docker run command construction, resource limits, timeout handling, log capture, and cleanup.
 
 ## Steps
 
@@ -19,7 +19,7 @@ Step 13 completed. Fake verification execution is wired through the run service 
 - [x] Step 11: Implement Worker Image
 - [x] Step 12: Implement Execution Abstraction
 - [x] Step 13: Implement Fake Verification Execution
-- [ ] Step 14: Implement Docker-Based Execution
+- [x] Step 14: Implement Docker-Based Execution
 - [ ] Step 15: Implement Artifact Storage
 - [ ] Step 16: Implement Frontend Session and Upload Flow
 - [ ] Step 17: Implement Frontend Run Flow
@@ -715,3 +715,44 @@ Known follow-ups:
 
 - Step 14 should replace the Docker executor skeleton with real Docker worker-container execution.
 - Artifact storage for full logs remains intentionally deferred to Step 15.
+
+
+### Step 14 — Implement Docker-Based Execution
+
+Completed.
+
+Changed files:
+
+- `backend/src/main/java/dev/erland/zipbuildserver/worker/docker/DockerCommandExecutor.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/worker/docker/DockerWorkspaceService.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/worker/docker/ResourceLimitConfig.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/worker/fake/FakeCommandExecutor.java`
+- `backend/src/main/java/dev/erland/zipbuildserver/application/run/VerificationExecutionService.java`
+- `backend/src/main/resources/application.properties`
+- `.env.example`
+- `docker-compose.yml`
+- `backend/src/test/java/dev/erland/zipbuildserver/worker/docker/DockerCommandExecutorTest.java`
+- `backend/src/test/java/dev/erland/zipbuildserver/worker/docker/DockerWorkspaceServiceTest.java`
+
+Verification:
+
+- Static repository checks passed.
+- Docker command construction and workspace extraction tests were added.
+- `mvn test` was not run in this environment because Maven is unavailable.
+- Real Docker execution was not run in this environment because Docker is unavailable.
+
+Local verification commands:
+
+```bash
+cd backend
+mvn test
+
+# To exercise real Docker execution locally:
+./scripts/build-worker-image.sh
+ZIP_BUILDSERVER_WORKER_EXECUTOR=docker docker compose up --build
+```
+
+Known follow-ups:
+
+- Full log artifact storage is still deferred to Step 15.
+- Docker socket based execution remains a trusted self-hosted MVP mode and should be hardened later as documented in the delivery plan.

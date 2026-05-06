@@ -15,6 +15,7 @@ import dev.erland.zipbuildserver.infrastructure.persistence.repository.Verificat
 import dev.erland.zipbuildserver.worker.CommandExecutionRequest;
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
 import dev.erland.zipbuildserver.worker.CommandExecutor;
+import dev.erland.zipbuildserver.worker.docker.DockerWorkspaceService;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.nio.file.Path;
@@ -31,6 +32,7 @@ public class VerificationExecutionService {
     private final CommandExecutor commandExecutor;
     private final LogExcerptService logExcerptService;
     private final FailureClassificationService failureClassificationService;
+    private final DockerWorkspaceService workspaceService;
 
     public VerificationExecutionService(
             VerificationRunRepository runRepository,
@@ -38,50 +40,56 @@ public class VerificationExecutionService {
             ProjectDetectionService projectDetectionService,
             CommandExecutor commandExecutor,
             LogExcerptService logExcerptService,
-            FailureClassificationService failureClassificationService) {
+            FailureClassificationService failureClassificationService,
+            DockerWorkspaceService workspaceService) {
         this.runRepository = runRepository;
         this.commandRepository = commandRepository;
         this.projectDetectionService = projectDetectionService;
         this.commandExecutor = commandExecutor;
         this.logExcerptService = logExcerptService;
         this.failureClassificationService = failureClassificationService;
+        this.workspaceService = workspaceService;
     }
 
     public void execute(VerificationRunEntity run, SourcePackageEntity sourcePackage, VerificationPlan plan) {
         OffsetDateTime started = OffsetDateTime.now();
         run.status = RunStatus.RUNNING;
         run.startedAt = started;
-        run.summary = "Verification is running with fake command execution.";
+        run.summary = "Verification is running.";
         runRepository.persist(run);
 
         Path packagePath = Path.of(sourcePackage.storageReference);
-        Path workspaceRoot = packagePath.getParent() == null ? Path.of(".") : packagePath.getParent();
+        Path workspaceRoot = workspaceService.createWorkspace(packagePath);
         DetectedProject project = selectDetectedProject(packagePath, plan);
 
         boolean failed = false;
         boolean timedOut = false;
-        for (VerificationCommand command : plan.commands()) {
-            if (failed || timedOut) {
-                persistSkipped(run.id, command, resolveWorkingDirectory(command.workingDirectory(), project), "Skipped because an earlier command failed.");
-                continue;
+        try {
+            for (VerificationCommand command : plan.commands()) {
+                if (failed || timedOut) {
+                    persistSkipped(run.id, command, resolveWorkingDirectory(command.workingDirectory(), project), "Skipped because an earlier command failed.");
+                    continue;
+                }
+
+                String workingDirectory = resolveWorkingDirectory(command.workingDirectory(), project);
+                CommandExecutionRequest request = new CommandExecutionRequest(
+                        command.label(),
+                        workspaceRoot,
+                        workingDirectory,
+                        command.commandDisplay(),
+                        Duration.ofSeconds(command.timeoutSeconds()));
+
+                CommandExecutionResult result = commandExecutor.execute(request);
+                persistResult(run.id, command, workingDirectory, result);
+
+                if (result.status() == CheckStatus.TIMED_OUT) {
+                    timedOut = true;
+                } else if (result.status() == CheckStatus.FAILED || result.status() == CheckStatus.INTERNAL_ERROR) {
+                    failed = true;
+                }
             }
-
-            String workingDirectory = resolveWorkingDirectory(command.workingDirectory(), project);
-            CommandExecutionRequest request = new CommandExecutionRequest(
-                    command.label(),
-                    workspaceRoot,
-                    workingDirectory,
-                    command.commandDisplay(),
-                    Duration.ofSeconds(command.timeoutSeconds()));
-
-            CommandExecutionResult result = commandExecutor.execute(request);
-            persistResult(run.id, command, workingDirectory, result);
-
-            if (result.status() == CheckStatus.TIMED_OUT) {
-                timedOut = true;
-            } else if (result.status() == CheckStatus.FAILED || result.status() == CheckStatus.INTERNAL_ERROR) {
-                failed = true;
-            }
+        } finally {
+            workspaceService.cleanup(workspaceRoot);
         }
 
         OffsetDateTime completed = OffsetDateTime.now();
@@ -147,10 +155,10 @@ public class VerificationExecutionService {
 
     private String summaryFor(RunStatus status, int commandCount) {
         return switch (status) {
-            case PASSED -> "Fake verification passed. " + commandCount + " approved command(s) completed.";
-            case FAILED -> "Fake verification failed. Review command-level failure details.";
-            case TIMED_OUT -> "Fake verification timed out. Review command-level timeout details.";
-            default -> "Fake verification completed with status " + status + ".";
+            case PASSED -> "Verification passed. " + commandCount + " approved command(s) completed.";
+            case FAILED -> "Verification failed. Review command-level failure details.";
+            case TIMED_OUT -> "Verification timed out. Review command-level timeout details.";
+            default -> "Verification completed with status " + status + ".";
         };
     }
 }

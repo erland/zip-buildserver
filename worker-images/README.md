@@ -35,3 +35,22 @@ docker run --rm zip-buildserver-worker-node-maven:local npm --version
 ```
 
 The image is intentionally generic. Server-side verification plans still control which commands may run.
+
+
+## Docker executor
+
+Step 14 adds backend support for running approved verification-plan commands in this worker image.
+Build the image locally before enabling Docker execution:
+
+```bash
+./scripts/build-worker-image.sh
+```
+
+Enable real worker execution with:
+
+```bash
+ZIP_BUILDSERVER_WORKER_EXECUTOR=docker
+ZIP_BUILDSERVER_WORKER_IMAGE=zip-buildserver-worker-node-maven:local
+```
+
+The Docker socket mode is intended for trusted self-hosted development environments.

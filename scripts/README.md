@@ -17,3 +17,13 @@ Local development helpers:
 ```bash
 ZIP_BUILDSERVER_WORKER_IMAGE=zip-buildserver-worker-node-maven:local ./scripts/build-worker-image.sh
 ```
+
+
+## Real Docker worker execution
+
+Build the worker image and enable the Docker executor:
+
+```bash
+./scripts/build-worker-image.sh
+ZIP_BUILDSERVER_WORKER_EXECUTOR=docker docker compose up --build
+```
