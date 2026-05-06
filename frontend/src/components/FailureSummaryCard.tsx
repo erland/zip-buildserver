@@ -6,7 +6,9 @@ interface FailureSummaryCardProps {
 }
 
 export function FailureSummaryCard({ summary }: FailureSummaryCardProps) {
-  if (!summary.primaryFailure && summary.suggestedFocus.length === 0 && !summary.partial) {
+  const suggestedFocus = summary.suggestedFocus ?? [];
+
+  if (!summary.primaryFailure && suggestedFocus.length === 0 && !summary.partial) {
     return null;
   }
 
@@ -15,11 +17,11 @@ export function FailureSummaryCard({ summary }: FailureSummaryCardProps) {
       <h3>{summary.primaryFailure ? 'Primary failure' : 'Run warning'}</h3>
       {summary.primaryFailure ? <p>{summary.primaryFailure}</p> : null}
       {summary.partial ? <p>This result is partial. Some commands may not have completed.</p> : null}
-      {summary.suggestedFocus.length > 0 ? (
+      {suggestedFocus.length > 0 ? (
         <>
           <strong>Suggested focus</strong>
           <ul className={styles.list}>
-            {summary.suggestedFocus.map((item) => (
+            {suggestedFocus.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>

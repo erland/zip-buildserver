@@ -42,9 +42,14 @@ public class ApiTokenAuthenticationFilter implements ContainerRequestFilter {
     }
 
     private boolean isPublicPath(String requestPath) {
-        String normalized = requestPath == null ? "" : requestPath;
+        String normalized = requestPath == null ? "" : requestPath.strip();
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
         return normalized.equals("api/health")
                 || normalized.equals("api/health/")
+                || normalized.equals("health")
+                || normalized.equals("health/")
                 || normalized.equals("q/openapi")
                 || normalized.startsWith("q/openapi/");
     }

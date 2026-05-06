@@ -6,6 +6,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
+import io.restassured.builder.MultiPartSpecBuilder;
+
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
 import dev.erland.zipbuildserver.worker.fake.FakeCommandExecutor;
 import jakarta.inject.Inject;
@@ -43,7 +45,11 @@ class RunResourceTest {
         Path zip = createNodeZip();
 
         String packageId = given()
-                .multiPart("file", "node-project.zip", zip.toFile(), "application/zip")
+                .multiPart(new MultiPartSpecBuilder(Files.readAllBytes(zip))
+                        .controlName("file")
+                        .fileName("node-project.zip")
+                        .mimeType("application/zip")
+                        .build())
                 .when().post("/api/sessions/{sessionId}/packages", sessionId)
                 .then()
                 .statusCode(201)
@@ -119,7 +125,11 @@ class RunResourceTest {
         Path zip = createNodeZip();
 
         String packageId = given()
-                .multiPart("file", "node-project.zip", zip.toFile(), "application/zip")
+                .multiPart(new MultiPartSpecBuilder(Files.readAllBytes(zip))
+                        .controlName("file")
+                        .fileName("node-project.zip")
+                        .mimeType("application/zip")
+                        .build())
                 .when().post("/api/sessions/{sessionId}/packages", sessionId)
                 .then()
                 .statusCode(201)
@@ -164,7 +174,11 @@ class RunResourceTest {
         Path zip = createUnsafeZip();
 
         String packageId = given()
-                .multiPart("file", "unsafe.zip", zip.toFile(), "application/zip")
+                .multiPart(new MultiPartSpecBuilder(Files.readAllBytes(zip))
+                        .controlName("file")
+                        .fileName("unsafe.zip")
+                        .mimeType("application/zip")
+                        .build())
                 .when().post("/api/sessions/{sessionId}/packages", sessionId)
                 .then()
                 .statusCode(201)

@@ -2,7 +2,7 @@ import type { RunCommand } from '../api/types';
 import styles from './CommandResultTable.module.css';
 
 interface CommandResultTableProps {
-  commands: RunCommand[];
+  commands?: RunCommand[];
 }
 
 function formatDuration(durationMillis: number | null): string {
@@ -17,7 +17,7 @@ function formatDuration(durationMillis: number | null): string {
   return `${(durationMillis / 1000).toFixed(1)} s`;
 }
 
-export function CommandResultTable({ commands }: CommandResultTableProps) {
+export function CommandResultTable({ commands = [] }: CommandResultTableProps) {
   if (commands.length === 0) {
     return <p className={styles.empty}>No command results have been recorded yet.</p>;
   }

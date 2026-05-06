@@ -5,6 +5,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 
+import io.restassured.builder.MultiPartSpecBuilder;
+
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
 import dev.erland.zipbuildserver.worker.fake.FakeCommandExecutor;
 import io.quarkus.test.junit.QuarkusTest;
@@ -41,7 +43,11 @@ class AssistantVerificationResourceTest {
                 .extract().path("sessionId");
 
         String packageId = given()
-                .multiPart("file", "node-project.zip", createNodeZip().toFile(), "application/zip")
+                .multiPart(new MultiPartSpecBuilder(Files.readAllBytes(createNodeZip()))
+                        .controlName("file")
+                        .fileName("node-project.zip")
+                        .mimeType("application/zip")
+                        .build())
                 .when().post("/api/sessions/{sessionId}/packages", sessionId)
                 .then()
                 .statusCode(201)
@@ -94,7 +100,11 @@ class AssistantVerificationResourceTest {
                 .extract().path("sessionId");
 
         String packageId = given()
-                .multiPart("file", "node-project.zip", createNodeZip().toFile(), "application/zip")
+                .multiPart(new MultiPartSpecBuilder(Files.readAllBytes(createNodeZip()))
+                        .controlName("file")
+                        .fileName("node-project.zip")
+                        .mimeType("application/zip")
+                        .build())
                 .when().post("/api/sessions/{sessionId}/packages", sessionId)
                 .then()
                 .statusCode(201)

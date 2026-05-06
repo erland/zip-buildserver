@@ -2,10 +2,10 @@ import type { RunCommand } from '../api/types';
 import styles from './LogExcerptPanel.module.css';
 
 interface LogExcerptPanelProps {
-  commands: RunCommand[];
+  commands?: RunCommand[];
 }
 
-export function LogExcerptPanel({ commands }: LogExcerptPanelProps) {
+export function LogExcerptPanel({ commands = [] }: LogExcerptPanelProps) {
   const commandsWithLogs = commands.filter((command) => command.logExcerpt);
 
   if (commandsWithLogs.length === 0) {

@@ -1353,3 +1353,200 @@ Known follow-ups:
 
 - The delivery plan is complete.
 - Future hardening should focus on stronger worker isolation, multi-user access control, private registry support, and production deployment guidance.
+
+## Repair log: Maven Testcontainers dependency version
+
+Status: completed.
+
+Issue:
+
+- First local `./scripts/build-all.sh` run failed before tests because Maven could not resolve `org.testcontainers:postgresql` without an explicit managed version.
+
+Changed files:
+
+- `backend/pom.xml`
+- `docs/agent-progress.md`
+
+Verification:
+
+```bash
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+pom = Path("backend/pom.xml")
+ET.parse(pom)
+text = pom.read_text()
+required = [
+    "<testcontainers.version>2.0.5</testcontainers.version>",
+    "<artifactId>testcontainers-bom</artifactId>",
+    "<artifactId>postgresql</artifactId>",
+]
+missing = [item for item in required if item not in text]
+if missing:
+    raise SystemExit(f"Missing expected POM entries: {missing}")
+print("POM dependency management check passed")
+PY
+```
+
+Result: passed.
+
+Local verification command:
+
+```bash
+./scripts/build-all.sh
+```
+
+Known follow-ups:
+
+- If later Maven errors appear, fix them separately without changing completed delivery-plan scope.
+
+## Repair log — Testcontainers PostgreSQL dependency version
+
+- Added an explicit `${testcontainers.version}` to the `org.testcontainers:postgresql` test dependency after Maven still reported the dependency version as missing.
+- Verification performed in this environment: parsed `backend/pom.xml` as XML and confirmed the dependency now has a direct version.
+- Local verification command: `./scripts/build-all.sh`.
+
+
+## Repair log — Testcontainers PostgreSQL artifact version
+
+- Updated `backend/pom.xml` to use `testcontainers.version` `1.21.4`, because `org.testcontainers:postgresql:2.0.5` is not published in Maven Central.
+- Kept the explicit version on `org.testcontainers:postgresql`.
+- Verification in this environment: parsed `backend/pom.xml` as valid XML and confirmed the resolved dependency version is configured.
+- Local verification command: `./scripts/build-all.sh`.
+
+
+## Repair log — RetentionCleanupService CDI constructor
+
+- Fixed Quarkus CDI discovery for `RetentionCleanupService` by marking the production constructor with `@Inject`.
+- Cause: the class had multiple constructors, and Quarkus skipped it as a bean because it could not select a valid bean constructor for injection into `ScheduledRetentionCleanup`.
+- Changed files:
+  - `backend/src/main/java/dev/erland/zipbuildserver/application/retention/RetentionCleanupService.java`
+  - `docs/agent-progress.md`
+- Verification in this environment: parsed Java source for the expected `jakarta.inject.Inject` import and constructor annotation.
+- Local verification command: `./scripts/build-all.sh`.
+
+## Repair log — test configuration startup failure
+
+- Fixed Quarkus test startup configuration after first local test run.
+- Changed database JDBC URL defaults to `%dev` and `%prod` profiles so `%test` can use Quarkus Dev Services/Testcontainers instead of attempting `localhost:5432`.
+- Added a non-empty `%test.zip-buildserver.auth.api-token` and non-empty default auth token to avoid SmallRye Config rejecting an empty string during startup.
+- Verification here: static configuration checks only; run `./scripts/build-all.sh` locally.
+
+
+## Repair log — test multipart/session/auth failures
+
+- Fixed RestAssured multipart upload tests to use `MultiPartSpecBuilder` with byte content for `application/zip`.
+- Allowed the session close endpoint to accept an empty request body.
+- Hardened the auth filter public-path matching for `/api/health`.
+- Verification performed: static source checks only in this environment.
+
+## Repair log — Multipart resource registration
+
+- Fixed package upload endpoint registration by adding the Quarkus REST multipart extension.
+- Changed files:
+  - `backend/pom.xml`
+  - `docs/agent-progress.md`
+- Verification:
+  - Static check confirmed `quarkus-rest-multipart` dependency is present and `backend/pom.xml` is valid XML.
+- Local verification command:
+  - `./scripts/build-all.sh`
+
+## Repair log — REST multipart package upload
+
+- Fixed Maven project loading by removing the nonexistent `io.quarkus:quarkus-rest-multipart` dependency.
+- Reworked `PackageResource` to bind the uploaded file directly with `@RestForm("file") FileUpload`, matching Quarkus REST multipart handling.
+- Verification: static checks confirmed valid `backend/pom.xml`, package upload route source exists, and Java brace balance.
+
+
+## Repair log — package upload route registration
+
+- Changed `PackageResource` to use a direct class-level route for `POST /api/sessions/{sessionId}/packages`.
+- Added `PackageLookupResource` for `GET /api/packages/{packageId}`.
+- Marked upload handling as blocking because it moves and validates uploaded files on disk.
+- Verification in assistant environment: static source checks only; run `./scripts/build-all.sh` locally.
+
+## Repair log
+
+- Fixed run resource route registration by making `POST/GET /api/sessions/{sessionId}/runs` a direct class-level route and moving `GET /api/runs/{runId}` plus summary lookup to `RunLookupResource`.
+- Verification: static checks only in this environment; rerun `./scripts/build-all.sh` locally.
+
+## Repair log — Artifact route registration
+
+- Changed `ArtifactResource` to register `GET /api/runs/{runId}/artifacts` directly.
+- Added `ArtifactContentResource` for `GET /api/artifacts/{artifactId}`.
+- Verification: static Java brace balance and XML checks performed in assistant environment. Local command to run: `./scripts/build-all.sh`.
+
+## Repair log — frontend test cleanup and command defaults
+
+Changed files:
+- `frontend/src/App.test.tsx`
+- `frontend/src/components/CommandResultTable.tsx`
+- `frontend/src/components/LogExcerptPanel.tsx`
+- `frontend/src/pages/RunPage.tsx`
+
+Verification:
+- Static checks only in assistant environment.
+- Local command to run: `cd frontend && npm test && npm run build`
+
+Notes:
+- Added Testing Library cleanup after each App test to avoid duplicate rendered app trees.
+- Made run command rendering tolerant of incomplete API responses while a run/report is loading.
+
+## Repair log — frontend run-flow test mock order
+
+Changed files:
+
+- `frontend/src/App.test.tsx`
+
+Verification:
+
+- Static frontend checks passed in this environment.
+- Local command to run: `./scripts/build-all.sh`
+
+Notes:
+
+- Added the expected session-runs refetch response after create-run mutation so subsequent mocked responses line up with `GET /api/runs/{runId}`, summary, and artifacts requests.
+
+
+
+## Repair log — frontend failure summary safety
+
+- Fixed `frontend/src/components/FailureSummaryCard.tsx` to tolerate missing `suggestedFocus` arrays from partial or transitional run-summary responses.
+- Hardened `frontend/src/pages/RunPage.tsx` duration formatting for missing values.
+- Verification here: static frontend source checks only. Run locally: `./scripts/build-all.sh`.
+
+
+### Repair — Frontend run-flow test mock ordering
+
+Changed files:
+
+- `frontend/src/App.test.tsx`
+
+Verification:
+
+- Static frontend file checks performed.
+- Local command to run: `./scripts/build-all.sh`
+
+Notes:
+
+- Added an additional mocked `GET /api/runs/{runId}` response for the session run list's `PollingRunStatus` query so the subsequent run page query receives the full run response with command details.
+
+
+## Repair log — Frontend TypeScript build fixes
+
+Changed files:
+
+- `frontend/src/vite-env.d.ts`
+- `frontend/vite.config.ts`
+- `frontend/src/App.test.tsx`
+
+Verification:
+
+- Static checks confirmed Vite CSS module typings are present.
+- Static checks confirmed `vite.config.ts` uses `vitest/config` so the `test` property is typed.
+- Static checks confirmed the unused `waitFor` import was removed.
+
+Known follow-up:
+
+- Run `./scripts/build-all.sh` locally to verify with installed frontend dependencies.

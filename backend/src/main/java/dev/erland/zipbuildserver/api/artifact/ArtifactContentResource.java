@@ -9,29 +9,22 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.util.UUID;
 
-@Path("/api/runs/{runId}/artifacts")
+@Path("/api/artifacts/{artifactId}")
 @Produces(MediaType.APPLICATION_JSON)
-public class ArtifactResource {
+public class ArtifactContentResource {
     private final ArtifactStorageService artifactStorageService;
 
-    public ArtifactResource(ArtifactStorageService artifactStorageService) {
+    public ArtifactContentResource(ArtifactStorageService artifactStorageService) {
         this.artifactStorageService = artifactStorageService;
     }
 
     @GET
-    public ArtifactListResponse listForRun(@PathParam("runId") UUID runId) {
-        return new ArtifactListResponse(artifactStorageService.listForRun(runId).stream()
-                .map(this::toResponse)
-                .toList());
-    }
-
-    private ArtifactResponse toResponse(ArtifactReferenceEntity artifact) {
-        return new ArtifactResponse(
+    public ArtifactContentResponse get(@PathParam("artifactId") UUID artifactId) {
+        ArtifactReferenceEntity artifact = artifactStorageService.get(artifactId);
+        return new ArtifactContentResponse(
                 artifact.id,
                 artifact.runId,
                 artifact.type,
-                artifact.sizeBytes,
-                artifact.createdAt,
-                artifact.expiresAt);
+                artifactStorageService.readText(artifactId));
     }
 }

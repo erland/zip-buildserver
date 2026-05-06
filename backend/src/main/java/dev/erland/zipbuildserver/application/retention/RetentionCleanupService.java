@@ -9,6 +9,7 @@ import dev.erland.zipbuildserver.infrastructure.persistence.repository.AuditEven
 import dev.erland.zipbuildserver.infrastructure.persistence.repository.SourcePackageRepository;
 import dev.erland.zipbuildserver.infrastructure.persistence.repository.VerificationSessionRepository;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -38,6 +39,7 @@ public class RetentionCleanupService {
     private final int workspaceGraceMinutes;
     private final Clock clock;
 
+    @Inject
     public RetentionCleanupService(
             ArtifactReferenceRepository artifactRepository,
             SourcePackageRepository packageRepository,

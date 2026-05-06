@@ -7,8 +7,8 @@ import { RunStatusBadge } from '../components/RunStatusBadge';
 import { useRun, useRunSummary } from '../api/runs';
 import styles from './Page.module.css';
 
-function formatDuration(durationMillis: number | null): string {
-  if (durationMillis === null) {
+function formatDuration(durationMillis: number | null | undefined): string {
+  if (durationMillis == null || Number.isNaN(durationMillis)) {
     return '—';
   }
 
@@ -56,6 +56,7 @@ export function RunPage() {
   }
 
   const run = runQuery.data;
+  const commands = run.commands ?? [];
   const summary = summaryQuery.data;
 
   return (
@@ -75,19 +76,19 @@ export function RunPage() {
         <div className={styles.card}>
           <h2>Summary</h2>
           <p>{summary.summary ?? 'No summary is available yet.'}</p>
-          <p>Commands run: {summary.commandsRun.length > 0 ? summary.commandsRun.join(', ') : 'None yet'}</p>
+          <p>Commands run: {(summary.commandsRun ?? []).length > 0 ? (summary.commandsRun ?? []).join(', ') : 'None yet'}</p>
           <FailureSummaryCard summary={summary} />
         </div>
       ) : null}
 
       <div className={styles.card}>
         <h2>Command results</h2>
-        <CommandResultTable commands={run.commands} />
+        <CommandResultTable commands={commands} />
       </div>
 
       <div className={styles.card}>
         <h2>Log excerpts</h2>
-        <LogExcerptPanel commands={run.commands} />
+        <LogExcerptPanel commands={commands} />
       </div>
 
       <div className={styles.card}>

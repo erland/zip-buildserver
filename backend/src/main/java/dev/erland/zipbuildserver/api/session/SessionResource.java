@@ -39,6 +39,7 @@ public class SessionResource {
 
     @POST
     @Path("/{sessionId}/close")
+    @Consumes(MediaType.WILDCARD)
     public SessionResponse close(@PathParam("sessionId") UUID sessionId) {
         return service.close(sessionId);
     }
