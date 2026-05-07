@@ -1576,3 +1576,11 @@ Known follow-up:
 - Updated Maven pass/fail fixtures with explicit compiler and Surefire plugin versions.
 - Added a JUnit test to `test-fixtures/maven-pass` so `mvn test` has a deterministic passing test on Java 21.
 - Verification: static XML checks only in this environment; run `./scripts/verify-local.sh` locally.
+
+
+## Maintenance log — Java package rename
+
+- Renamed Java package prefix from `dev.erland` to `info.isaksson.erland`.
+- Moved backend and Maven fixture Java source directories to match the new package prefix.
+- Updated Maven coordinates and text references that used the old Java package prefix.
+- Verification in this environment: static text scan and XML/JSON parsing only; local `./scripts/build-all.sh` recommended.
