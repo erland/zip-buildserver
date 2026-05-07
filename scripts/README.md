@@ -4,6 +4,7 @@ Local development helpers:
 
 ```bash
 ./scripts/build-all.sh
+./scripts/clean-temp.sh
 ./scripts/dev-up.sh
 ./scripts/dev-down.sh
 ./scripts/build-worker-image.sh
@@ -51,6 +52,26 @@ Useful overrides:
 ```bash
 ZIP_BUILDSERVER_API_TOKEN=change-me ./scripts/verify-local.sh
 ZIP_BUILDSERVER_E2E_KEEP_STACK=true ./scripts/verify-local.sh
+```
+
+## Temporary cleanup
+
+Remove generated local build, test, and E2E artifacts:
+
+```bash
+./scripts/clean-temp.sh
+```
+
+Preview removals without deleting files:
+
+```bash
+./scripts/clean-temp.sh --dry-run
+```
+
+Also remove frontend dependencies and the E2E Docker Compose stack:
+
+```bash
+./scripts/clean-temp.sh --all --docker
 ```
 
 ## Full local build

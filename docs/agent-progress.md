@@ -1584,3 +1584,7 @@ Known follow-up:
 - Moved backend and Maven fixture Java source directories to match the new package prefix.
 - Updated Maven coordinates and text references that used the old Java package prefix.
 - Verification in this environment: static text scan and XML/JSON parsing only; local `./scripts/build-all.sh` recommended.
+
+## Repair log — temporary cleanup script
+
+Added `scripts/clean-temp.sh` to remove generated local build/test artifacts, local E2E data, optional frontend dependencies, and optional E2E Docker Compose resources. Updated script documentation and ignore rules.

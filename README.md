@@ -25,6 +25,21 @@ It is designed for workflows where a person or AI assistant produces an updated 
 - It does not run arbitrary commands from users, assistants, `README.md`, or `AGENTS.md` files in uploaded packages.
 - It does not replace human review for security, licensing, or production readiness.
 
+
+### Cleanup
+
+Remove generated temporary files and local E2E data:
+
+```bash
+./scripts/clean-temp.sh
+```
+
+For a deeper cleanup that also removes `frontend/node_modules/` and the E2E Docker Compose stack:
+
+```bash
+./scripts/clean-temp.sh --all --docker
+```
+
 ## Security warning
 
 Uploaded packages must be treated as untrusted code.

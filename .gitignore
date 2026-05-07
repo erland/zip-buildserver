@@ -29,3 +29,5 @@ artifacts/
 *.jar
 *.war
 *.zip
+.local/
+.chatgpt-zips/
