@@ -1550,3 +1550,29 @@ Verification:
 Known follow-up:
 
 - Run `./scripts/build-all.sh` locally to verify with installed frontend dependencies.
+
+## Repair log — Worker executor runtime selection
+
+- Fixed Docker E2E verification always using the fake executor when the backend image was built without `ZIP_BUILDSERVER_WORKER_EXECUTOR=docker`.
+- Added `RuntimeCommandExecutor` so `zip-buildserver.worker.executor` is selected from runtime configuration.
+- Kept `FakeCommandExecutor` and `DockerCommandExecutor` injectable for tests and delegation, but removed build-time `@IfBuildProperty` selection from those concrete executors.
+- Verification in this environment: static Java brace checks and configuration checks only; Docker E2E should be rerun locally with `./scripts/verify-local.sh`.
+
+
+
+## Repair log — worker host workspace config default
+
+- Fixed Quarkus test startup by making `zip-buildserver.worker.docker.host-workspaces-dir` default to a non-empty path.
+- Changed files:
+  - `backend/src/main/resources/application.properties`
+- Verification:
+  - Static configuration check performed.
+- Follow-up:
+  - Re-run `./scripts/build-all.sh`, then `./scripts/verify-local.sh`.
+
+
+## Repair log — Maven fixture E2E
+
+- Updated Maven pass/fail fixtures with explicit compiler and Surefire plugin versions.
+- Added a JUnit test to `test-fixtures/maven-pass` so `mvn test` has a deterministic passing test on Java 21.
+- Verification: static XML checks only in this environment; run `./scripts/verify-local.sh` locally.

@@ -3,8 +3,6 @@ package dev.erland.zipbuildserver.worker.docker;
 import dev.erland.zipbuildserver.domain.model.CheckStatus;
 import dev.erland.zipbuildserver.worker.CommandExecutionRequest;
 import dev.erland.zipbuildserver.worker.CommandExecutionResult;
-import dev.erland.zipbuildserver.worker.CommandExecutor;
-import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.io.ByteArrayOutputStream;
@@ -18,16 +16,14 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-@IfBuildProperty(name = "zip-buildserver.worker.executor", stringValue = "docker")
 @ApplicationScoped
-public class DockerCommandExecutor implements CommandExecutor {
+public class DockerCommandExecutor {
     private final ResourceLimitConfig resourceLimitConfig;
 
     public DockerCommandExecutor(ResourceLimitConfig resourceLimitConfig) {
         this.resourceLimitConfig = resourceLimitConfig;
     }
 
-    @Override
     public CommandExecutionResult execute(CommandExecutionRequest request) {
         request.resolvedWorkingDirectory();
 
