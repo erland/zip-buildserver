@@ -1,13 +1,12 @@
 package info.isaksson.erland.zipbuildserver.application.run;
 
 import info.isaksson.erland.zipbuildserver.api.run.CreateRunRequest;
-import info.isaksson.erland.zipbuildserver.api.run.RunCommandResponse;
 import info.isaksson.erland.zipbuildserver.api.run.RunResponse;
 import info.isaksson.erland.zipbuildserver.api.run.RunSummaryResponse;
 import info.isaksson.erland.zipbuildserver.application.NotFoundException;
+import info.isaksson.erland.zipbuildserver.application.mapper.RunResponseMapper;
 import info.isaksson.erland.zipbuildserver.application.project.ProjectDetectionService;
 import info.isaksson.erland.zipbuildserver.application.verification.VerificationPlanService;
-import info.isaksson.erland.zipbuildserver.domain.model.CheckStatus;
 import info.isaksson.erland.zipbuildserver.domain.model.NetworkMode;
 import info.isaksson.erland.zipbuildserver.domain.model.RunStatus;
 import info.isaksson.erland.zipbuildserver.domain.model.SessionStatus;
@@ -28,7 +27,6 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 
 import java.nio.file.Path;
-import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -42,6 +40,7 @@ public class VerificationRunService {
     private final ProjectDetectionService projectDetectionService;
     private final VerificationPlanService verificationPlanService;
     private final VerificationExecutionService executionService;
+    private final RunResponseMapper runResponseMapper;
 
     public VerificationRunService(
             VerificationSessionRepository sessionRepository,
@@ -50,7 +49,8 @@ public class VerificationRunService {
             VerificationCommandResultRepository commandRepository,
             ProjectDetectionService projectDetectionService,
             VerificationPlanService verificationPlanService,
-            VerificationExecutionService executionService) {
+            VerificationExecutionService executionService,
+            RunResponseMapper runResponseMapper) {
         this.sessionRepository = sessionRepository;
         this.packageRepository = packageRepository;
         this.runRepository = runRepository;
@@ -58,6 +58,7 @@ public class VerificationRunService {
         this.projectDetectionService = projectDetectionService;
         this.verificationPlanService = verificationPlanService;
         this.executionService = executionService;
+        this.runResponseMapper = runResponseMapper;
     }
 
     @Transactional
@@ -91,7 +92,7 @@ public class VerificationRunService {
         entity.status = RunStatus.QUEUED;
         entity.planId = plan.id();
         entity.requestedPlanId = normalize(request.requestedPlanId());
-        entity.networkMode = NetworkMode.valueOf(plan.networkMode().name());
+        entity.networkMode = plan.networkMode();
         entity.summary = "Run queued for fake verification execution.";
         entity.startedAt = null;
         entity.completedAt = null;
@@ -99,13 +100,13 @@ public class VerificationRunService {
 
         runRepository.persist(entity);
         executionService.execute(entity, sourcePackage, plan);
-        return toResponse(entity);
+        return runResponseMapper.toResponse(entity, commandsFor(entity.id));
     }
 
     public RunResponse get(UUID runId) {
         VerificationRunEntity entity = runRepository.findByIdOptional(runId)
                 .orElseThrow(() -> new NotFoundException("Run was not found: " + runId));
-        return toResponse(entity);
+        return runResponseMapper.toResponse(entity, commandsFor(entity.id));
     }
 
     public List<RunResponse> listForSession(UUID sessionId) {
@@ -114,39 +115,14 @@ public class VerificationRunService {
         }
         return runRepository.list("sessionId", sessionId).stream()
                 .sorted(Comparator.comparing((VerificationRunEntity run) -> run.id.toString()))
-                .map(this::toResponse)
+                .map(run -> runResponseMapper.toResponse(run, commandsFor(run.id)))
                 .toList();
     }
 
     public RunSummaryResponse summary(UUID runId) {
         VerificationRunEntity entity = runRepository.findByIdOptional(runId)
                 .orElseThrow(() -> new NotFoundException("Run was not found: " + runId));
-        List<VerificationCommandResultEntity> commands = commandsFor(entity.id);
-        List<String> commandLabels = commands.stream()
-                .map(command -> command.commandLabel)
-                .toList();
-        List<String> focusAreas = commands.stream()
-                .filter(command -> command.status != CheckStatus.PASSED)
-                .map(command -> command.failureMessage == null || command.failureMessage.isBlank()
-                        ? command.commandLabel
-                        : command.commandLabel + ": " + command.failureMessage)
-                .toList();
-        if (focusAreas.isEmpty()) {
-            focusAreas = List.of("All fake verification commands completed successfully.");
-        }
-        return new RunSummaryResponse(
-                entity.id,
-                entity.status,
-                entity.summary,
-                entity.planId,
-                commands.stream()
-                        .filter(command -> command.status == CheckStatus.FAILED || command.status == CheckStatus.TIMED_OUT)
-                        .map(command -> command.failureMessage)
-                        .findFirst()
-                        .orElse(null),
-                commandLabels,
-                focusAreas,
-                false);
+        return runResponseMapper.toSummaryResponse(entity, commandsFor(entity.id));
     }
 
     private VerificationPlan selectPlan(SourcePackageEntity sourcePackage, String requestedPlanId) {
@@ -172,40 +148,6 @@ public class VerificationRunService {
         }
         return verificationPlanService.findById(selectedProject.selectedPlanId())
                 .orElseThrow(() -> new BadRequestException("Selected verification plan is not available: " + selectedProject.selectedPlanId()));
-    }
-
-    private RunResponse toResponse(VerificationRunEntity entity) {
-        return new RunResponse(
-                entity.id,
-                entity.sessionId,
-                entity.sourcePackageId,
-                entity.status,
-                entity.planId,
-                entity.requestedPlanId,
-                entity.networkMode,
-                entity.summary,
-                entity.startedAt,
-                entity.completedAt,
-                entity.durationMillis,
-                commandsFor(entity.id).stream().map(this::toCommandResponse).toList());
-    }
-
-    private RunCommandResponse toCommandResponse(VerificationCommandResultEntity entity) {
-        return new RunCommandResponse(
-                entity.id,
-                entity.commandLabel,
-                entity.workingDirectory,
-                entity.commandDisplay,
-                entity.status,
-                entity.exitCode,
-                entity.startedAt,
-                entity.completedAt,
-                entity.durationMillis,
-                entity.logExcerpt,
-                entity.failureCategory,
-                entity.failureMessage,
-                entity.stdoutArtifactRef,
-                entity.stderrArtifactRef);
     }
 
     private List<VerificationCommandResultEntity> commandsFor(UUID runId) {

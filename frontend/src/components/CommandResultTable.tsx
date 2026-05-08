@@ -1,21 +1,11 @@
 import type { RunCommand } from '../api/types';
+import { formatDuration } from '../utils/format';
 import styles from './CommandResultTable.module.css';
 
 interface CommandResultTableProps {
   commands?: RunCommand[];
 }
 
-function formatDuration(durationMillis: number | null): string {
-  if (durationMillis === null) {
-    return '—';
-  }
-
-  if (durationMillis < 1000) {
-    return `${durationMillis} ms`;
-  }
-
-  return `${(durationMillis / 1000).toFixed(1)} s`;
-}
 
 export function CommandResultTable({ commands = [] }: CommandResultTableProps) {
   if (commands.length === 0) {

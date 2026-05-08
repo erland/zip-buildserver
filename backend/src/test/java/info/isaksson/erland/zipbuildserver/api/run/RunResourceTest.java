@@ -71,7 +71,25 @@ class RunResourceTest {
                 .body("sourcePackageId", equalTo(packageId))
                 .body("status", equalTo("PASSED"))
                 .body("planId", equalTo("node-default"))
+                .body("requestedPlanId", equalTo(null))
+                .body("networkMode", equalTo("DEPENDENCY"))
+                .body("summary", equalTo("Verification passed. 3 approved command(s) completed."))
+                .body("startedAt", notNullValue())
+                .body("completedAt", notNullValue())
+                .body("durationMillis", greaterThanOrEqualTo(0))
                 .body("commands", hasSize(3))
+                .body("commands[0].id", notNullValue())
+                .body("commands[0].commandLabel", equalTo("Install dependencies"))
+                .body("commands[0].workingDirectory", equalTo("."))
+                .body("commands[0].commandDisplay", equalTo("npm ci"))
+                .body("commands[0].status", equalTo("PASSED"))
+                .body("commands[0].exitCode", equalTo(0))
+                .body("commands[0].startedAt", notNullValue())
+                .body("commands[0].completedAt", notNullValue())
+                .body("commands[0].durationMillis", greaterThanOrEqualTo(0))
+                .body("commands[0].logExcerpt", notNullValue())
+                .body("commands[0].failureCategory", equalTo(null))
+                .body("commands[0].failureMessage", equalTo(null))
                 .body("commands[0].stdoutArtifactRef", notNullValue())
                 .body("commands[0].stderrArtifactRef", notNullValue())
                 .extract().path("id");
@@ -99,8 +117,12 @@ class RunResourceTest {
                 .statusCode(200)
                 .body("runId", equalTo(runId))
                 .body("status", equalTo("PASSED"))
+                .body("summary", equalTo("Verification passed. 3 approved command(s) completed."))
                 .body("planId", equalTo("node-default"))
-                .body("commandsRun", hasSize(3));
+                .body("primaryFailure", equalTo(null))
+                .body("commandsRun", hasSize(3))
+                .body("suggestedFocus", hasSize(1))
+                .body("partial", equalTo(false));
     }
 
 
@@ -147,9 +169,17 @@ class RunResourceTest {
                 .then()
                 .statusCode(201)
                 .body("status", equalTo("FAILED"))
+                .body("summary", equalTo("Verification failed. Review command-level failure details."))
                 .body("commands", hasSize(3))
                 .body("commands[0].status", equalTo("FAILED"))
+                .body("commands[0].exitCode", equalTo(1))
+                .body("commands[0].failureCategory", equalTo("dependency"))
+                .body("commands[0].failureMessage", equalTo("Dependency installation failed."))
+                .body("commands[0].logExcerpt", equalTo("npm ERR dependency resolution failed"))
                 .body("commands[1].status", equalTo("SKIPPED"))
+                .body("commands[1].exitCode", equalTo(null))
+                .body("commands[1].failureCategory", equalTo("skipped"))
+                .body("commands[1].failureMessage", equalTo("Skipped because an earlier command failed."))
                 .extract().path("id");
 
         given()
@@ -158,7 +188,12 @@ class RunResourceTest {
                 .statusCode(200)
                 .body("runId", equalTo(runId))
                 .body("status", equalTo("FAILED"))
-                .body("primaryFailure", equalTo("Dependency installation failed."));
+                .body("summary", equalTo("Verification failed. Review command-level failure details."))
+                .body("planId", equalTo("node-default"))
+                .body("primaryFailure", equalTo("Dependency installation failed."))
+                .body("commandsRun", hasSize(3))
+                .body("suggestedFocus", hasSize(3))
+                .body("partial", equalTo(false));
     }
 
     @Test

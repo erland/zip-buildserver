@@ -40,6 +40,9 @@ class AssistantVerificationResourceTest {
                 .statusCode(201)
                 .body("sessionId", notNullValue())
                 .body("status", equalTo("OPEN"))
+                .body("label", equalTo("assistant smoke"))
+                .body("retentionPolicy", equalTo("default"))
+                .body("createdAt", notNullValue())
                 .extract().path("sessionId");
 
         String packageId = given()
@@ -67,8 +70,19 @@ class AssistantVerificationResourceTest {
                 .body("sessionId", equalTo(sessionId))
                 .body("packageId", equalTo(packageId))
                 .body("status", equalTo("PASSED"))
+                .body("summary", equalTo("Verification passed. 3 approved command(s) completed."))
+                .body("planId", equalTo("node-default"))
+                .body("structuredSummary.runId", notNullValue())
+                .body("structuredSummary.status", equalTo("PASSED"))
+                .body("structuredSummary.summary", equalTo("Verification passed. 3 approved command(s) completed."))
+                .body("structuredSummary.primaryFailure", equalTo(null))
+                .body("structuredSummary.failedFiles", hasSize(0))
+                .body("structuredSummary.failedTests", hasSize(0))
                 .body("structuredSummary.commandsRun", hasSize(3))
                 .body("structuredSummary.failedChecks", hasSize(0))
+                .body("structuredSummary.suggestedFocus", hasSize(1))
+                .body("structuredSummary.fullLogReference", notNullValue())
+                .body("structuredSummary.partial", equalTo(false))
                 .extract().path("runId");
 
         given()
@@ -77,8 +91,15 @@ class AssistantVerificationResourceTest {
                 .statusCode(200)
                 .body("runId", equalTo(runId))
                 .body("status", equalTo("PASSED"))
+                .body("summary", equalTo("Verification passed. 3 approved command(s) completed."))
+                .body("primaryFailure", equalTo(null))
+                .body("failedFiles", hasSize(0))
+                .body("failedTests", hasSize(0))
                 .body("commandsRun", hasSize(3))
-                .body("fullLogReference", equalTo("/api/runs/%s/artifacts".formatted(runId)));
+                .body("failedChecks", hasSize(0))
+                .body("suggestedFocus", hasSize(1))
+                .body("fullLogReference", equalTo("/api/runs/%s/artifacts".formatted(runId)))
+                .body("partial", equalTo(false));
     }
 
     @Test
@@ -121,8 +142,19 @@ class AssistantVerificationResourceTest {
                 .then()
                 .statusCode(201)
                 .body("status", equalTo("FAILED"))
+                .body("summary", equalTo("Verification failed. Review command-level failure details."))
+                .body("structuredSummary.status", equalTo("FAILED"))
+                .body("structuredSummary.summary", equalTo("Verification failed. Review command-level failure details."))
                 .body("structuredSummary.primaryFailure", equalTo("Dependency installation failed."))
                 .body("structuredSummary.failedChecks", hasSize(1))
+                .body("structuredSummary.failedChecks[0].label", equalTo("Install dependencies"))
+                .body("structuredSummary.failedChecks[0].command", equalTo("npm ci"))
+                .body("structuredSummary.failedChecks[0].workingDirectory", equalTo("."))
+                .body("structuredSummary.failedChecks[0].status", equalTo("FAILED"))
+                .body("structuredSummary.failedChecks[0].exitCode", equalTo(1))
+                .body("structuredSummary.failedChecks[0].failureCategory", equalTo("dependency"))
+                .body("structuredSummary.failedChecks[0].failureMessage", equalTo("Dependency installation failed."))
+                .body("structuredSummary.failedChecks[0].logExcerpt", equalTo("npm ERR dependency resolution failed"))
                 .extract().path("runId");
 
         given()
@@ -132,7 +164,13 @@ class AssistantVerificationResourceTest {
                 .body("runId", equalTo(runId))
                 .body("failedLogExcerpts", hasSize(1))
                 .body("failedLogExcerpts[0].label", equalTo("Install dependencies"))
-                .body("failedLogExcerpts[0].failureMessage", equalTo("Dependency installation failed."));
+                .body("failedLogExcerpts[0].command", equalTo("npm ci"))
+                .body("failedLogExcerpts[0].workingDirectory", equalTo("."))
+                .body("failedLogExcerpts[0].status", equalTo("FAILED"))
+                .body("failedLogExcerpts[0].exitCode", equalTo(1))
+                .body("failedLogExcerpts[0].failureCategory", equalTo("dependency"))
+                .body("failedLogExcerpts[0].failureMessage", equalTo("Dependency installation failed."))
+                .body("failedLogExcerpts[0].logExcerpt", equalTo("npm ERR dependency resolution failed"));
     }
 
     private static Path createNodeZip() throws IOException {

@@ -1,1045 +1,845 @@
-# Delivery Plan
+# Refactoring Implementation Plan
 
-This active delivery plan is adapted from `docs/development-plan.md`.
+Generated for the uploaded `digest.zip` repository.
 
-# Development Plan: zip-buildserver
+## Purpose
 
-## 1. Goal
+This plan converts the refactoring analysis into an incremental, testable implementation sequence. It is designed to be copied into `docs/delivery-plan.md` or used as a standalone roadmap.
 
-Implement `zip-buildserver`, a self-hosted service that verifies uploaded source-code zip packages by running predefined build and test checks in an isolated execution environment and returning concise structured reports suitable for both humans and AI assistant integrations such as Custom GPT Actions.
+## Ground rules
 
-The repository is assumed to be created as:
+- Implement one step at a time.
+- Preserve existing behavior unless a step explicitly changes it.
+- Add characterization tests before changing high-risk behavior.
+- Avoid unrelated cleanup.
+- Keep each step reviewable.
+- Run verification after each step.
+- Update `docs/agent-progress.md` after each completed step if using the repository's AGENTS workflow.
 
-```text
-github.com/erland/zip-buildserver
+## Suggested default verification commands
+
+Use the commands that match the repository environment.
+
+```bash
+# Backend
+./mvnw test
+
+# Frontend
+cd frontend
+npm install
+npm test
+npm run build
+
+# Full container smoke check, when Docker is available
+docker compose build
+docker compose up --abort-on-container-exit
 ```
 
-The service shall support the workflow where a user or assistant uploads an updated source-code zip, the service runs configured verification checks, and the user or assistant receives a compact build/test result without needing to run the project locally.
+If these commands differ from the repository scripts, prefer the commands already documented in the repository.
 
-The service shall verify packages only. It shall not modify source code, create commits, deploy applications, or run arbitrary user-supplied shell commands.
+---
 
-## 2. Technology Choices
+# Phase 1 — Low-risk cleanup and test scaffolding
 
-### 2.1 Frontend
+## Step 1 — Extract frontend formatting utilities
 
-Use:
+### Goal
 
-```text
-React
-TypeScript
-Vite
-React Router
-TanStack Query
-CSS Modules or plain CSS
-Vitest + React Testing Library
-```
+Move page-local formatting helpers into shared frontend utilities.
 
-Rationale:
+### Scope
 
-- React and TypeScript match the preferred frontend stack.
-- Vite keeps the frontend lightweight and easy to containerize.
-- TanStack Query is suitable for polling verification runs and managing API state.
-- The UI can stay focused: upload package, start run, view results, inspect logs.
+- Move `formatDuration` from `frontend/src/pages/RunPage.tsx` into a shared utility module, for example:
+  - `frontend/src/utils/format.ts`
+- Update imports in affected components.
+- Add or update tests for formatting behavior.
 
-### 2.2 Backend
+### Acceptance criteria
 
-Use:
+- `RunPage.tsx` no longer owns generic formatting helpers.
+- Duration formatting behavior remains unchanged.
+- Utility has focused tests for null, short, long, and boundary durations.
 
-```text
-Java 21
-Quarkus
-Maven
-RESTEasy Reactive / Jackson
-Hibernate Validator
-SmallRye OpenAPI
-PostgreSQL
-Flyway
-JUnit 5 + RestAssured + Testcontainers
-```
+### Suggested tests
 
-Rationale:
+- `formatDuration(undefined)` or equivalent missing value handling.
+- Seconds-only duration.
+- Minute-plus duration.
+- Hour-plus duration if currently supported.
 
-- Quarkus fits well with Java-based service development and containerized deployment.
-- SmallRye OpenAPI makes it straightforward to expose an OpenAPI contract for Custom GPT Actions.
-- PostgreSQL gives durable storage for sessions, runs, package metadata, command results, artifacts, and audit data.
-- Testcontainers is useful for database-backed integration tests.
+### Verification
 
-### 2.3 Execution Worker
-
-Use Docker-based ephemeral worker containers for verification runs.
-
-Initial model:
-
-```text
-zip-buildserver-api
-  |
-  | Docker API
-  v
-ephemeral worker container per verification run
-```
-
-The backend orchestrates workers but does not execute uploaded package code directly inside the API container.
-
-Important security note: mounting the Docker socket into the backend container is convenient but powerful. It effectively grants the backend broad control over the Docker host. This is acceptable only for a trusted self-hosted first version. Keep the execution layer behind an interface so it can later be replaced with rootless Docker, Podman, Kubernetes Jobs, a separate worker host, or microVM isolation.
-
-### 2.4 Packaging
-
-Use Docker Compose for the initial deployment:
-
-```text
-docker-compose.yml
-  zip-buildserver-api
-  zip-buildserver-web
-  postgres
-```
-
-Use separate API and web containers rather than a single all-in-one container for the first version. This keeps responsibilities clear and makes local development simpler. An all-in-one image can be added later if desired.
-
-## 3. Assumptions
-
-- The service is self-hosted by a trusted operator.
-- Uploaded source packages are untrusted.
-- The first version is single-admin or trusted-user oriented.
-- Docker is available on the target server.
-- Verification commands are predefined by server-side plans.
-- Uploaded package documentation, such as `README.md` or `AGENTS.md`, may be read as metadata but must not define commands to execute.
-- Some projects may require network access to fetch dependencies.
-- The first supported project types are Maven and Node/npm projects.
-- The service is intended for development-time verification, not production deployment.
-
-## 4. Target Repository Structure
-
-```text
-zip-buildserver/
-  README.md
-  AGENTS.md
-  docker-compose.yml
-  .env.example
-  .gitignore
-
-  docs/
-    functional-specification.md
-    development-plan.md
-    api-overview.md
-    security-model.md
-    verification-plans.md
-    operations.md
-
-  backend/
-    pom.xml
-    Dockerfile
-    src/
-      main/
-        java/dev/erland/zipbuildserver/
-          api/
-          application/
-          domain/
-          infrastructure/
-          worker/
-          storage/
-          security/
-          config/
-        resources/
-          application.properties
-          db/migration/
-          verification-plans/
-      test/
-        java/dev/erland/zipbuildserver/
-
-  frontend/
-    package.json
-    Dockerfile
-    vite.config.ts
-    tsconfig.json
-    src/
-      main.tsx
-      App.tsx
-      api/
-      components/
-      pages/
-      routes/
-      styles/
-
-  worker-images/
-    node-maven/
-      Dockerfile
-
-  scripts/
-    dev-up.sh
-    dev-down.sh
-    build-all.sh
-    build-worker-image.sh
-    verify-local.sh
-
-  test-fixtures/
-    README.md
-```
-
-## 5. Backend Architecture
-
-### 5.1 Layers
-
-Use a layered backend structure:
-
-```text
-api/
-  REST resources, request DTOs, response DTOs, error mapping
-
-application/
-  use cases and orchestration
-
-domain/
-  core models, state transitions, validation rules
-
-infrastructure/
-  persistence, Docker integration, filesystem storage
-
-worker/
-  execution abstractions and worker adapters
-
-storage/
-  package and artifact storage services
-
-security/
-  authentication, authorization, audit
-
-config/
-  runtime configuration and verification-plan loading
-```
-
-### 5.2 Core Domain Objects
-
-```text
-VerificationSession
-  id
-  label
-  status
-  createdAt
-  closedAt
-  createdBy
-  retentionPolicy
-
-SourcePackage
-  id
-  sessionId
-  originalFilename
-  checksumSha256
-  compressedSizeBytes
-  extractedSizeBytes
-  fileCount
-  topLevelEntries
-  storageReference
-  status
-  rejectionReason
-  createdAt
-
-VerificationRun
-  id
-  sessionId
-  sourcePackageId
-  status
-  planId
-  requestedPlanId
-  networkMode
-  summary
-  startedAt
-  completedAt
-  durationMillis
-
-VerificationCommandResult
-  id
-  runId
-  commandLabel
-  workingDirectory
-  commandDisplay
-  status
-  exitCode
-  startedAt
-  completedAt
-  durationMillis
-  logExcerpt
-  failureCategory
-  failureMessage
-  stdoutArtifactRef
-  stderrArtifactRef
-
-ArtifactReference
-  id
-  runId
-  type
-  storageReference
-  sizeBytes
-  createdAt
-  expiresAt
-```
-
-### 5.3 API Endpoints
-
-Initial human/API endpoints:
-
-```text
-POST   /api/sessions
-GET    /api/sessions/{sessionId}
-POST   /api/sessions/{sessionId}/close
-
-POST   /api/sessions/{sessionId}/packages
-GET    /api/packages/{packageId}
-
-POST   /api/sessions/{sessionId}/runs
-GET    /api/runs/{runId}
-GET    /api/runs/{runId}/summary
-POST   /api/runs/{runId}/cancel
-
-GET    /api/runs/{runId}/artifacts
-GET    /api/artifacts/{artifactId}
-
-GET    /api/verification-plans
-GET    /api/health
-```
-
-Initial package upload can be multipart:
-
-```text
-POST /api/sessions/{sessionId}/packages
-Content-Type: multipart/form-data
-file=<zip>
-```
-
-Assistant-friendly endpoints:
-
-```text
-POST /api/assistant/verification-sessions
-POST /api/assistant/verification-sessions/{sessionId}/runs
-GET  /api/assistant/verification-runs/{runId}/summary
-GET  /api/assistant/verification-runs/{runId}/failed-log-excerpts
-```
-
-The assistant endpoints should return compact structured JSON, not full logs by default.
-
-## 6. Frontend Architecture
-
-### 6.1 Pages
-
-```text
-HomePage
-  Create a new verification session and explain the service.
-
-SessionPage
-  Show session metadata, package upload, and run list.
-
-RunPage
-  Show live status, command-level results, failure summary, and log excerpts.
-
-PlansPage
-  Show available verification plans and supported project structures.
-
-AboutPage
-  Show version, configured limits, and security/retention summary.
-```
-
-### 6.2 Components
-
-```text
-SessionCreateForm
-PackageUploadDropzone
-RunStatusBadge
-ProjectDetectionSummary
-CommandResultTable
-FailureSummaryCard
-LogExcerptPanel
-ArtifactList
-VerificationPlanList
-PollingRunStatus
-```
-
-### 6.3 API Client
-
-```text
-frontend/src/api/client.ts
-frontend/src/api/types.ts
-frontend/src/api/sessions.ts
-frontend/src/api/packages.ts
-frontend/src/api/runs.ts
-frontend/src/api/plans.ts
-```
-
-TanStack Query hooks:
-
-```text
-useCreateSession
-useSession
-useUploadPackage
-useCreateRun
-useRun
-useRunSummary
-useVerificationPlans
-```
-
-## 7. Verification Plans
-
-### 7.1 Initial Plans
-
-#### node-default
-
-Detection:
-
-```text
-package.json
-```
-
-Checks:
-
-```text
-npm ci
-npm test -- --runInBand
+```bash
+cd frontend
+npm test
 npm run build
 ```
 
-Rules:
+### Risk
 
-- Skip test if no `test` script exists, unless policy requires tests.
-- Skip build if no `build` script exists, unless policy requires build.
-- Report skipped scripts as warnings.
+Low.
 
-#### maven-default
+---
 
-Detection:
+## Step 2 — Introduce shared frontend page-state components
 
-```text
-pom.xml
+### Goal
+
+Reduce repeated loading, error, missing-resource, and empty-state markup across pages.
+
+### Scope
+
+Create small shared components such as:
+
+- `LoadingCard`
+- `ErrorCard`
+- `MissingResourceCard`
+- optionally `PageCard`
+
+Update only the most obvious duplicated usages in:
+
+- `frontend/src/pages/SessionPage.tsx`
+- `frontend/src/pages/RunPage.tsx`
+
+### Acceptance criteria
+
+- Existing page behavior and text remain equivalent.
+- Shared components are simple and presentation-focused.
+- No routing or data-fetching behavior changes.
+
+### Suggested tests
+
+- Existing page tests continue to pass.
+- Add component tests only if frontend test setup already supports them cleanly.
+
+### Verification
+
+```bash
+cd frontend
+npm test
+npm run build
 ```
 
-Checks:
+### Risk
 
-```text
-mvn test
-mvn package -DskipTests
+Low.
+
+---
+
+## Step 3 — Add characterization tests for backend response mapping
+
+### Goal
+
+Lock in current API response shapes before extracting mapper classes.
+
+### Scope
+
+Add or strengthen tests around browser-facing and assistant-facing responses, especially:
+
+- session response fields,
+- run response fields,
+- command response fields,
+- summary/status fields,
+- missing/failed states.
+
+### Acceptance criteria
+
+- Tests document current response shape.
+- Tests fail if important response fields are dropped or renamed.
+- No production behavior changes.
+
+### Suggested tests
+
+Use existing resource/service tests where possible instead of introducing broad new infrastructure.
+
+### Verification
+
+```bash
+./mvnw test
 ```
 
-Rules:
+### Risk
 
-- Use Maven wrapper only if policy allows it.
-- Otherwise use Maven installed in the worker image.
-- Classify compilation failures separately from test failures.
+Low.
 
-#### multi-project-default
+---
 
-Detection:
+# Phase 2 — API and service responsibility cleanup
 
-```text
-backend/pom.xml
-frontend/package.json
+## Step 4 — Extract `RunResponseMapper`
+
+### Goal
+
+Move browser API DTO/entity mapping out of service/resource classes.
+
+### Scope
+
+Create a mapper class such as:
+
+- `backend/src/main/java/.../application/mapper/RunResponseMapper.java`
+
+Move existing mapping logic for run, command, artifact, and summary responses into the mapper.
+
+### Acceptance criteria
+
+- Service classes no longer contain browser response mapping details.
+- API response payloads remain unchanged.
+- Existing tests pass without expectation changes.
+
+### Suggested tests
+
+- Existing response-shape tests from Step 3 should cover this.
+- Add mapper unit tests if mapping has complex conditional behavior.
+
+### Verification
+
+```bash
+./mvnw test
 ```
 
-Checks:
+### Risk
 
-```text
-backend: mvn test
-backend: mvn package -DskipTests
-frontend: npm ci
-frontend: npm test -- --runInBand
-frontend: npm run build
+Low to medium.
+
+---
+
+## Step 5 — Extract `AssistantResponseMapper`
+
+### Goal
+
+Move assistant API response mapping out of assistant resource classes.
+
+### Scope
+
+Create a mapper class such as:
+
+- `backend/src/main/java/.../application/mapper/AssistantResponseMapper.java`
+
+Move mappings for assistant session, run, command, and status responses.
+
+### Acceptance criteria
+
+- Assistant resource class becomes thinner.
+- Assistant API response format remains unchanged.
+- Existing assistant API tests pass unchanged.
+
+### Suggested tests
+
+- Assistant API response tests covering success and error-like states.
+- Mapper tests for any special assistant-specific formatting.
+
+### Verification
+
+```bash
+./mvnw test
 ```
 
-Rules:
+### Risk
 
-- Run sequentially in the MVP.
-- Later versions may support parallel independent checks.
+Low to medium.
 
-### 7.2 Plan Configuration
+---
 
-Store verification plans server-side:
+## Step 6 — Extract run summary/status logic
 
-```text
-backend/src/main/resources/verification-plans/node-default.yml
-backend/src/main/resources/verification-plans/maven-default.yml
-backend/src/main/resources/verification-plans/multi-project-default.yml
+### Goal
+
+Separate summary/status derivation from orchestration services.
+
+### Scope
+
+Create one or both:
+
+- `RunSummaryService`
+- `RunStatusCalculator`
+
+Move logic that derives final run state, command counts, skipped/failed summaries, and display summaries.
+
+### Acceptance criteria
+
+- `VerificationRunService` and/or `VerificationExecutionService` delegate summary/status calculation.
+- Existing run status semantics are unchanged.
+- Tests cover success, failure, timeout, skipped, and partial-result scenarios.
+
+### Suggested tests
+
+- All commands passed.
+- One command failed.
+- One command timed out.
+- Commands skipped after failure if that is current behavior.
+- No commands available.
+
+### Verification
+
+```bash
+./mvnw test
 ```
 
-Do not execute commands defined by uploaded files.
+### Risk
 
-## 8. Execution Worker
+Medium.
 
-### 8.1 Worker Image
+---
+
+# Phase 3 — Domain model consolidation
+
+## Step 7 — Add characterization tests for `NetworkMode`
+
+### Goal
+
+Protect current behavior before removing duplicate network-mode definitions.
+
+### Scope
+
+Add tests around:
+
+- verification plan parsing,
+- run creation,
+- execution configuration,
+- API serialization if applicable,
+- persistence if applicable.
+
+### Acceptance criteria
+
+- Tests document how network modes are parsed, stored, and exposed.
+- No production behavior changes.
+
+### Verification
+
+```bash
+./mvnw test
+```
+
+### Risk
+
+Low.
+
+---
+
+## Step 8 — Deduplicate `NetworkMode`
+
+### Goal
+
+Converge on one canonical network-mode enum.
+
+### Scope
+
+Recommended canonical type:
+
+- `backend/src/main/java/.../domain/model/NetworkMode.java`
+
+Remove or replace:
+
+- `backend/src/main/java/.../domain/model/verification/NetworkMode.java`
+
+Update imports and mapping code accordingly.
+
+### Acceptance criteria
+
+- Only one application-level network-mode enum remains, unless a separate DTO/config enum is clearly justified.
+- All existing network-mode values remain supported.
+- Plan parsing and execution behavior remain unchanged.
+- Tests from Step 7 pass.
+
+### Verification
+
+```bash
+./mvnw test
+```
+
+### Risk
+
+Medium.
+
+---
+
+# Phase 4 — Verification plan parsing and selection cleanup
+
+## Step 9 — Add characterization tests for verification plan parsing
+
+### Goal
+
+Freeze current parsing behavior before extracting or replacing parser logic.
+
+### Scope
+
+Cover built-in plan examples and edge cases:
+
+- valid plan,
+- missing required fields,
+- command list parsing,
+- network mode parsing,
+- disabled/enabled behavior,
+- invalid values,
+- default values.
+
+### Acceptance criteria
+
+- Current parser behavior is explicitly tested.
+- No production behavior changes.
+
+### Verification
+
+```bash
+./mvnw test
+```
+
+### Risk
+
+Low.
+
+---
+
+## Step 10 — Extract `VerificationPlanParser`
+
+### Goal
+
+Move parsing logic out of `VerificationPlanService`.
+
+### Scope
 
 Create:
 
-```text
-worker-images/node-maven/Dockerfile
-```
+- `VerificationPlanParser`
 
-The first worker image should include:
+Move only parsing responsibilities into the new class. Keep behavior identical.
 
-```text
-Java 21
-Maven
-Node.js LTS
-npm
-basic shell tools
-non-root execution user
-```
+### Acceptance criteria
 
-### 8.2 Run Flow
+- `VerificationPlanService` delegates parsing.
+- Parser tests pass without expectation changes.
+- No plan-selection behavior changes.
 
-For each verification run:
-
-1. Create an isolated workspace.
-2. Extract the uploaded package safely.
-3. Detect project structure.
-4. Select verification plan.
-5. Start an ephemeral worker container.
-6. Run approved commands in order.
-7. Capture stdout, stderr, exit code, duration, and timeout state.
-8. Store full logs as artifacts.
-9. Generate concise excerpts and structured failure details.
-10. Remove worker container.
-11. Delete workspace according to retention policy.
-12. Persist final run status.
-
-### 8.3 Initial Resource Limits
-
-Make these configurable:
-
-```text
-max archive size: 100 MB
-max extracted size: 500 MB
-max files: 20,000
-max total run duration: 15 minutes
-max command duration: 10 minutes
-max stdout/stderr retained per command: 10 MB
-default memory limit: 2 GB
-default CPU limit: 2 cores
-```
-
-### 8.4 Network Modes
-
-Support:
-
-```text
-none
-dependency
-full
-```
-
-Initial default:
-
-```text
-dependency
-```
-
-For the MVP, `dependency` may initially mean normal outbound access with clear documentation. Later, it can be tightened with proxying, registry allowlists, or network policies.
-
-## 9. Storage
-
-### 9.1 Database
-
-Use PostgreSQL tables:
-
-```text
-verification_session
-source_package
-verification_run
-verification_command_result
-artifact_reference
-audit_event
-```
-
-### 9.2 Filesystem Storage
-
-Initial storage:
-
-```text
-/data/zip-buildserver/packages/
-/data/zip-buildserver/artifacts/
-/data/zip-buildserver/workspaces/
-```
-
-Abstract storage behind service interfaces so S3-compatible storage can be added later.
-
-### 9.3 Retention Defaults
-
-```text
-uploaded packages: 7 days
-extracted workspaces: delete immediately after run
-logs/artifacts: 14 days
-session metadata: 90 days
-```
-
-## 10. Security Model
-
-### 10.1 Authentication
-
-MVP authentication:
-
-```text
-static API token for API access
-```
-
-Example configuration:
-
-```text
-ZIP_BUILDSERVER_API_TOKEN=change-me
-```
-
-Do not place this token in a public frontend bundle. For a private self-hosted UI, prefer same-origin access behind a reverse proxy or add a future login/session mechanism.
-
-### 10.2 Uploaded Code Safety
-
-The service must:
-
-- Treat uploaded packages as malicious.
-- Validate archives before extraction.
-- Prevent path traversal.
-- Avoid exposing secrets to workers.
-- Run worker containers with resource limits.
-- Avoid mounting host paths except the run workspace.
-- Return only concise logs to assistants by default.
-- Delete workspaces after runs.
-
-### 10.3 Docker Socket Warning
-
-Document that Docker socket access is powerful. Recommended production hardening path:
-
-```text
-1. Run on a dedicated host.
-2. Use rootless Docker or Podman if possible.
-3. Move execution to a separate worker host.
-4. Consider Kubernetes Jobs or microVMs for stronger isolation.
-```
-
-## 11. Implementation Steps
-
-## Step 1: Initialize Repository Skeleton
-
-Create the repository structure, documentation placeholders, `.gitignore`, `.env.example`, and root README.
-
-Deliverables:
-
-```text
-README.md
-AGENTS.md
-.gitignore
-.env.example
-docs/functional-specification.md
-docs/development-plan.md
-backend/
-frontend/
-worker-images/
-scripts/
-```
-
-Verification:
+### Verification
 
 ```bash
-find . -maxdepth 3 -type f | sort
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Repository has a clear root structure.
-- Documentation is present.
-- No generated dependencies or build artifacts are committed.
+Medium.
 
-## Step 2: Create Backend Quarkus Project
+---
 
-Initialize the backend Maven project with REST, validation, OpenAPI, database, Flyway, and test dependencies.
+## Step 11 — Extract `VerificationPlanValidator`
 
-Deliverables:
+### Goal
 
-```text
-backend/pom.xml
-backend/src/main/java/dev/erland/zipbuildserver/
-backend/src/main/resources/application.properties
-backend/src/test/java/dev/erland/zipbuildserver/
-```
+Separate validation rules from parsing and service orchestration.
 
-Verification:
+### Scope
+
+Create:
+
+- `VerificationPlanValidator`
+
+Move validation for required fields, supported values, and command definitions.
+
+### Acceptance criteria
+
+- Parser creates structured data.
+- Validator reports invalid plan definitions.
+- Existing validation behavior remains unchanged unless tests reveal an intentional improvement is needed.
+
+### Verification
 
 ```bash
-cd backend
-mvn test
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Backend compiles.
-- Basic health/resource test passes.
+Medium.
 
-## Step 3: Create Frontend React Project
+---
 
-Initialize the Vite React/TypeScript frontend.
+## Step 12 — Extract `VerificationPlanSelector`
 
-Deliverables:
+### Goal
 
-```text
-frontend/package.json
-frontend/src/main.tsx
-frontend/src/App.tsx
-frontend/src/api/
-frontend/src/pages/
-frontend/src/components/
-```
+Separate plan selection from catalog loading and parsing.
 
-Verification:
+### Scope
+
+Create:
+
+- `VerificationPlanSelector`
+
+Move logic that chooses the best plan for a detected project/package.
+
+### Acceptance criteria
+
+- Selection behavior remains unchanged.
+- Tests cover at least one matching and one no-match case.
+- `VerificationPlanService` becomes a coordinator/catalog facade.
+
+### Verification
 
 ```bash
-cd frontend
-npm install
-npm run build
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Frontend builds successfully.
-- Initial page renders service title and placeholder navigation.
+Medium.
 
-## Step 4: Add Docker Compose Development Environment
+---
 
-Create Docker Compose configuration for backend, frontend, PostgreSQL, and the Docker execution setup.
+## Step 13 — Consider replacing the hand-rolled YAML-like parser
 
-Deliverables:
+### Goal
 
-```text
-docker-compose.yml
-backend/Dockerfile
-frontend/Dockerfile
-.env.example
-scripts/dev-up.sh
-scripts/dev-down.sh
-```
+Improve parser safety and maintainability after behavior is characterized.
 
-Verification:
+### Scope
+
+Evaluate replacing custom YAML-like parsing with a real parser or stricter explicit format reader.
+
+### Acceptance criteria
+
+- Existing plan files continue to load.
+- Invalid plans fail clearly.
+- Parser behavior is documented.
+- No security regressions are introduced.
+
+### Suggested approach
+
+Do not combine this with earlier extraction steps. First extract and test the current behavior; then replace internals in one isolated change.
+
+### Verification
 
 ```bash
-docker compose up --build
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- PostgreSQL starts.
-- Backend starts and reaches the database.
-- Frontend starts and reaches the backend health endpoint.
+Medium to high.
 
-## Step 5: Implement Database Schema and Core Entities
+---
 
-Add Flyway migration and persistence mapping.
+# Phase 5 — Docker execution decomposition
 
-Deliverables:
+## Step 14 — Add characterization tests for Docker command construction
 
-```text
-backend/src/main/resources/db/migration/V1__initial_schema.sql
-backend/src/main/java/dev/erland/zipbuildserver/domain/
-backend/src/main/java/dev/erland/zipbuildserver/infrastructure/persistence/
-```
+### Goal
 
-Verification:
+Protect security-sensitive Docker invocation behavior before refactoring.
+
+### Scope
+
+Test command construction for:
+
+- image name,
+- working directory,
+- mounted workspace,
+- network mode,
+- timeout-related behavior if encoded in command,
+- command arguments,
+- environment variables if applicable.
+
+### Acceptance criteria
+
+- Current Docker command arguments are explicitly tested.
+- Tests avoid requiring Docker daemon unless the project already has integration-test support.
+
+### Verification
 
 ```bash
-cd backend
-mvn test
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Migration applies in tests.
-- Repository tests pass.
+Low.
 
-## Step 6: Implement Session API
+---
 
-Implement session creation, reading, listing, and closing.
+## Step 15 — Extract `DockerRunCommandBuilder`
 
-Deliverables:
+### Goal
 
-```text
-POST /api/sessions
-GET /api/sessions/{sessionId}
-POST /api/sessions/{sessionId}/close
-```
+Separate Docker CLI argument construction from process execution.
 
-Verification:
+### Scope
+
+Create:
+
+- `DockerRunCommandBuilder`
+
+Move only command/argument construction into the builder.
+
+### Acceptance criteria
+
+- `DockerCommandExecutor` delegates command building.
+- Command output and process handling remain unchanged.
+- Characterization tests from Step 14 pass.
+
+### Verification
 
 ```bash
-cd backend
-mvn test
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Session lifecycle works.
-- Invalid IDs return controlled errors.
+Medium.
 
-## Step 7: Implement Package Upload and Archive Validation
+---
 
-Implement multipart zip upload, checksum calculation, metadata extraction, and safe archive validation.
+## Step 16 — Extract `DockerWorkspacePathMapper`
 
-Deliverables:
+### Goal
 
-```text
-POST /api/sessions/{sessionId}/packages
-GET /api/packages/{packageId}
-ArchiveValidationService
-PackageStorageService
-```
+Isolate host/container workspace path resolution.
 
-Validation must cover:
+### Scope
 
-```text
-zip format
-size limits
-file count limits
-extracted size limits
-path traversal
-absolute paths
-malformed entries
-unsafe links or special files according to policy
-```
+Create:
 
-Verification:
+- `DockerWorkspacePathMapper`
+
+Move path normalization, workspace mount path calculation, and working-directory mapping.
+
+### Acceptance criteria
+
+- Path behavior remains unchanged.
+- Tests cover normal paths, nested working directories, missing directories, and path traversal-like inputs if currently handled.
+
+### Verification
 
 ```bash
-cd backend
-mvn test
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Valid zip accepted.
-- Unsafe zip rejected.
-- Package metadata recorded.
+Medium.
 
-## Step 8: Implement Project Detection
+---
 
-Implement detection for Maven, Node, and multi-project layouts.
+## Step 17 — Extract bounded process output capture
 
-Deliverables:
+### Goal
 
-```text
-ProjectDetectionService
-DetectedProject model
-Package detection summary in API response
-```
+Separate stdout/stderr capture limits from Docker execution orchestration.
 
-Verification:
+### Scope
+
+Create:
+
+- `BoundedProcessOutputCollector`
+- or similar focused class.
+
+Move bounded capture and truncation behavior.
+
+### Acceptance criteria
+
+- Existing output limits remain unchanged.
+- Tests cover small output, oversized output, stderr, stdout, and truncation markers if present.
+
+### Verification
 
 ```bash
-cd backend
-mvn test
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- `pom.xml`, `package.json`, and `backend` + `frontend` layouts are detected.
-- Unsupported packages do not trigger command execution.
+Medium.
 
-## Step 9: Implement Verification Plan Configuration
+---
 
-Add configured verification plans and selection logic.
+## Step 18 — Extract container cleanup behavior
 
-Deliverables:
+### Goal
 
-```text
-verification-plans/node-default.yml
-verification-plans/maven-default.yml
-verification-plans/multi-project-default.yml
-VerificationPlanService
-GET /api/verification-plans
-```
+Make cleanup behavior explicit and testable.
 
-Verification:
+### Scope
+
+Create:
+
+- `DockerContainerCleanup`
+- or a similarly named collaborator.
+
+Move cleanup command construction and invocation.
+
+### Acceptance criteria
+
+- Container cleanup still runs in the same success/failure cases as before.
+- Cleanup failures are handled exactly as before unless intentionally documented.
+- Tests cover cleanup after success, failure, and timeout if feasible.
+
+### Verification
 
 ```bash
-cd backend
-mvn test
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Plans load from server configuration.
-- Plans are selected deterministically.
-- Uploaded files cannot define commands.
+Medium.
 
-## Step 10: Implement Run Creation and State Machine
+---
 
-Implement run creation and state transitions without real Docker execution yet.
+# Phase 6 — Verification execution orchestration cleanup
 
-Deliverables:
+## Step 19 — Extract artifact persistence
 
-```text
-POST /api/sessions/{sessionId}/runs
-GET /api/runs/{runId}
-GET /api/runs/{runId}/summary
-VerificationRunService
-RunStatus transition rules
-```
+### Goal
 
-Verification:
+Move stdout/stderr artifact persistence out of execution orchestration.
+
+### Scope
+
+Create:
+
+- `CommandArtifactService`
+- or `ArtifactCaptureService`
+
+Move logic that creates and stores command artifacts.
+
+### Acceptance criteria
+
+- Artifact file names, media types, sizes, and associations remain unchanged.
+- Existing artifact download tests pass.
+- New focused tests cover artifact creation behavior.
+
+### Verification
 
 ```bash
-cd backend
-mvn test
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Runs can be created for accepted packages.
-- Runs cannot be created for rejected packages or closed sessions.
-- Initial structured summary is available.
+Medium.
 
-## Step 11: Implement Worker Image
+---
 
-Create the first worker image.
+## Step 20 — Extract command result persistence
 
-Deliverables:
+### Goal
 
-```text
-worker-images/node-maven/Dockerfile
-scripts/build-worker-image.sh
-```
+Separate command-result persistence from execution coordination.
 
-Verification:
+### Scope
+
+Create:
+
+- `CommandResultPersister`
+
+Move logic that records command exit codes, durations, timeout state, skipped state, and output artifact references.
+
+### Acceptance criteria
+
+- Run and command records are unchanged for equivalent executions.
+- Failure and timeout states remain unchanged.
+- Tests cover success, failure, timeout, and skipped results.
+
+### Verification
 
 ```bash
-docker build -t zip-buildserver-worker-node-maven:local worker-images/node-maven
-docker run --rm zip-buildserver-worker-node-maven:local java -version
-docker run --rm zip-buildserver-worker-node-maven:local mvn -version
-docker run --rm zip-buildserver-worker-node-maven:local node --version
-docker run --rm zip-buildserver-worker-node-maven:local npm --version
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Worker image contains required tools.
-- Worker runs as non-root where practical.
+Medium.
 
-## Step 12: Implement Execution Abstraction
+---
 
-Create an execution interface and a fake implementation for tests.
+## Step 21 — Introduce `RunExecutor` coordinator
 
-Deliverables:
+### Goal
 
-```text
-CommandExecutor
-CommandExecutionRequest
-CommandExecutionResult
-FakeCommandExecutor
-DockerCommandExecutor skeleton
-```
+Make `VerificationExecutionService` a thin entry point or replace it with a clearer coordinator.
 
-Verification:
+### Scope
+
+Create:
+
+- `RunExecutor`
+
+Move high-level execution flow into the coordinator after supporting collaborators have been extracted.
+
+### Acceptance criteria
+
+- Public service contracts remain stable.
+- Execution behavior remains unchanged.
+- Docker and persistence tests continue to pass.
+
+### Verification
 
 ```bash
-cd backend
-mvn test
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- Application logic can execute verification plans through an abstraction.
-- Unit tests do not require Docker.
+Medium to high.
 
-## Step 13: Implement Fake Verification Execution
+---
 
-Wire execution flow using the fake executor for deterministic tests.
+# Phase 7 — Frontend/backend contract hardening
 
-Deliverables:
+## Step 22 — Document API contract synchronization strategy
 
-```text
-VerificationExecutionService
-CommandResult persistence
-LogExcerptService
-FailureClassificationService initial version
-```
+### Goal
 
-Verification:
+Prevent frontend TypeScript API types from silently drifting from backend DTOs.
 
-```bash
-cd backend
-mvn test
-```
+### Scope
 
-Expected outcome:
+Add documentation explaining how frontend API types should be kept in sync with backend responses.
 
-- A run can transition from queued to running to passed or failed.
-- Command results are persisted.
-- Summaries include failure details.
+Possible location:
 
-## Step 14: Implement Docker-Based Execution
+- `docs/reference/api-contract-sync.md`
 
-Implement real Docker worker execution.
+### Acceptance criteria
 
-Deliverables:
+- The chosen sync strategy is documented.
+- The document names the relevant frontend and backend files.
+- The document explains when to update frontend types.
 
-```text
-DockerCommandExecutor
-DockerWorkspaceService
-ResourceLimitConfig
-Timeout handling
-Log capture
-Container cleanup
-```
+### Verification
 
-Verification:
+Documentation-only step.
 
-```bash
-cd backend
-mvn test
-```
+### Risk
 
-Manual verification:
+Low.
 
-```bash
-docker compose up --build
-# upload a small Maven or Node zip through the API
-# create a run
-# inspect summary
-```
+---
 
-Expected outcome:
+## Step 23 — Evaluate generated TypeScript API types
 
-- Worker containers are created per run.
-- Commands execute in the extracted workspace.
-- Containers are removed after completion.
-- Timeouts and failures are captured.
+### Goal
 
-## Step 15: Implement Artifact Storage
+Decide whether to generate frontend types from OpenAPI.
 
-Store full logs separately and expose authorized retrieval.
+### Scope
 
-Deliverables:
+Investigate current OpenAPI output and frontend build tooling.
 
-```text
-ArtifactStorageService
-GET /api/runs/{runId}/artifacts
-GET /api/artifacts/{artifactId}
-```
+Possible outcomes:
 
-Verification:
+1. Adopt generated types.
+2. Keep manual types with a sync checklist.
+3. Add runtime validation for critical API responses.
 
-```bash
-cd backend
-mvn test
-```
+### Acceptance criteria
 
-Expected outcome:
+- Decision is documented.
+- If generation is adopted, generated output location and command are documented.
+- If generation is deferred, manual sync process is clear.
 
-- Default summary contains short excerpts.
-- Full logs are stored separately.
-- Artifact IDs are opaque.
+### Verification
 
-## Step 16: Implement Frontend Session and Upload Flow
-
-Build the UI for creating sessions and uploading zip packages.
-
-Deliverables:
-
-```text
-HomePage
-SessionPage
-PackageUploadDropzone
-API hooks for sessions and package upload
-```
-
-Verification:
+Depends on selected outcome. At minimum:
 
 ```bash
 cd frontend
@@ -1047,424 +847,114 @@ npm test
 npm run build
 ```
 
-Manual verification:
+and, if backend OpenAPI generation is involved:
 
 ```bash
-docker compose up --build
-# create session in browser
-# upload test zip
+./mvnw test
 ```
 
-Expected outcome:
+### Risk
 
-- User can create a session.
-- User can upload a zip.
-- Validation errors are displayed.
+Medium.
 
-## Step 17: Implement Frontend Run Flow
+---
 
-Build the UI for starting runs and polling run status.
+# Phase 8 — Workflow documentation cleanup
 
-Deliverables:
+## Step 24 — Archive completed delivery history
 
-```text
-RunPage
-RunStatusBadge
-CommandResultTable
-FailureSummaryCard
-LogExcerptPanel
-ArtifactList
-Polling behavior
-```
+### Goal
 
-Verification:
+Reduce the active size of `docs/agent-progress.md`.
+
+### Scope
+
+Move historical completed step logs into:
+
+- `docs/reference/delivery-history.md`
+
+Keep `docs/agent-progress.md` focused on:
+
+- current status,
+- active checklist,
+- recent completion summary,
+- pointer to archived history.
+
+### Acceptance criteria
+
+- No historical information is lost.
+- Active progress file is substantially shorter.
+- `AGENTS.md` workflow remains usable.
+- References to archived history are clear.
+
+### Verification
+
+Documentation-only step.
+
+### Risk
+
+Low.
+
+---
+
+# Phase 9 — Final validation
+
+## Step 25 — Run full regression verification
+
+### Goal
+
+Confirm the refactoring sequence preserved behavior.
+
+### Scope
+
+Run all practical verification commands.
+
+### Acceptance criteria
+
+- Backend test suite passes.
+- Frontend test suite passes.
+- Frontend production build passes.
+- Docker smoke check passes if Docker is available.
+- Any failures are documented with exact commands and logs.
+
+### Verification
 
 ```bash
+./mvnw test
+
 cd frontend
 npm test
 npm run build
+cd ..
+
+docker compose build
+docker compose up --abort-on-container-exit
 ```
 
-Manual verification:
+### Risk
 
-```bash
-docker compose up --build
-# upload package
-# start run
-# watch status update
-```
+Low.
 
-Expected outcome:
+---
 
-- User can start a run.
-- Run status updates automatically.
-- Passed, failed, rejected, and timed-out states are clear.
+# Recommended first implementation step
 
-## Step 18: Add Assistant-Friendly API and OpenAPI Refinement
+Start with **Step 1 — Extract frontend formatting utilities**.
 
-Add compact assistant-specific endpoints and verify OpenAPI output is suitable for a Custom GPT Action.
+It is low-risk, creates immediate cleanup, and establishes the pattern of making small, reviewable changes with tests.
 
-Deliverables:
+# Recommended first backend implementation step
+
+Start backend refactoring with **Step 3 — Add characterization tests for backend response mapping**, followed by **Step 4 — Extract `RunResponseMapper`**.
+
+This reduces service/resource responsibilities without touching security-sensitive Docker execution.
+
+# Notes for AGENTS.md workflow use
+
+If this plan is copied into `docs/delivery-plan.md`, initialize `docs/agent-progress.md` with the numbered steps above. Then each prompt can use:
 
 ```text
-/api/assistant/verification-sessions
-/api/assistant/verification-sessions/{sessionId}/runs
-/api/assistant/verification-runs/{runId}/summary
-/q/openapi
-docs/api-overview.md
+Follow AGENTS.md and implement next step.
 ```
 
-Verification:
-
-```bash
-cd backend
-mvn test
-curl http://localhost:8080/q/openapi
-```
-
-Expected outcome:
-
-- Assistant endpoints return compact structured JSON.
-- OpenAPI schema is available.
-- Large logs are not returned by default.
-
-## Step 19: Add Authentication and Basic Access Control
-
-Implement static token authentication for API access.
-
-Deliverables:
-
-```text
-Auth filter or interceptor
-Configurable API token
-Protected write endpoints
-docs/operations.md updated
-```
-
-Verification:
-
-```bash
-cd backend
-mvn test
-```
-
-Manual verification:
-
-```bash
-curl -i http://localhost:8080/api/sessions
-curl -i -H "Authorization: Bearer $ZIP_BUILDSERVER_API_TOKEN" http://localhost:8080/api/sessions
-```
-
-Expected outcome:
-
-- Protected endpoints require token.
-- Health endpoint remains available if configured.
-- Documentation explains token setup.
-
-## Step 20: Add Retention Cleanup
-
-Implement scheduled cleanup of expired packages, artifacts, and workspaces.
-
-Deliverables:
-
-```text
-RetentionCleanupService
-Retention configuration
-Audit events for cleanup
-```
-
-Verification:
-
-```bash
-cd backend
-mvn test
-```
-
-Expected outcome:
-
-- Expired artifacts are removed.
-- Metadata retention follows policy.
-- Workspaces are deleted after runs.
-
-## Step 21: Add End-to-End Docker Verification
-
-Add small sample fixtures and a local verification script.
-
-Deliverables:
-
-```text
-scripts/verify-local.sh
-test-fixtures/node-pass/
-test-fixtures/node-fail/
-test-fixtures/maven-pass/
-test-fixtures/maven-fail/
-```
-
-The script can zip fixtures during execution rather than committing binary zip files.
-
-Verification:
-
-```bash
-./scripts/verify-local.sh
-```
-
-Expected outcome:
-
-- Docker Compose stack starts.
-- Fixture package uploads.
-- Run executes.
-- Script verifies expected passed/failed status.
-
-## Step 22: Complete Documentation and Release Readiness
-
-Complete user and operator documentation.
-
-Deliverables:
-
-```text
-README.md
-docs/security-model.md
-docs/verification-plans.md
-docs/operations.md
-docs/api-overview.md
-.env.example
-```
-
-README must explain:
-
-- What the service does.
-- What it does not do.
-- Security warning about untrusted code.
-- Docker Compose installation.
-- Basic UI workflow.
-- Basic API workflow.
-- Custom GPT Action usage notes.
-- Troubleshooting.
-
-Verification:
-
-```bash
-./scripts/build-all.sh
-./scripts/verify-local.sh
-```
-
-Expected outcome:
-
-- A new user can clone the repo, configure `.env`, run Docker Compose, upload a zip, and see verification results.
-
-## 12. MVP Scope
-
-Include in MVP:
-
-```text
-React/TypeScript frontend
-Quarkus backend
-PostgreSQL metadata storage
-local filesystem package/artifact storage
-Docker Compose deployment
-zip upload
-archive validation
-Maven and Node project detection
-configured verification plans
-Docker worker execution
-concise structured reports
-full log artifacts
-basic static-token API authentication
-retention cleanup
-OpenAPI output for Custom GPT Action configuration
-```
-
-Exclude from MVP:
-
-```text
-source-code modification
-automatic Git commits
-GitHub PR creation
-arbitrary command execution
-multi-user RBAC
-private dependency registry support
-Kubernetes worker execution
-microVM isolation
-advanced AI log summarization
-```
-
-## 13. Suggested Milestones
-
-### Milestone 1: Foundation
-
-Steps 1-5.
-
-Result:
-
-- Repository, backend, frontend, Docker Compose, database schema.
-
-### Milestone 2: Package Intake
-
-Steps 6-10.
-
-Result:
-
-- Sessions, zip upload, archive validation, project detection, plan selection, run state.
-
-### Milestone 3: Execution
-
-Steps 11-15.
-
-Result:
-
-- Worker image, execution abstraction, Docker execution, log capture, artifacts.
-
-### Milestone 4: User Interface
-
-Steps 16-17.
-
-Result:
-
-- Browser UI for sessions, uploads, runs, reports.
-
-### Milestone 5: Assistant and Operations
-
-Steps 18-22.
-
-Result:
-
-- Assistant-friendly API, OpenAPI, auth, cleanup, docs, local verification script.
-
-## 14. Local Development Commands
-
-Root-level scripts:
-
-```bash
-./scripts/dev-up.sh
-./scripts/dev-down.sh
-./scripts/build-all.sh
-./scripts/verify-local.sh
-```
-
-Backend:
-
-```bash
-cd backend
-mvn test
-mvn quarkus:dev
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm test
-npm run build
-npm run dev
-```
-
-Docker:
-
-```bash
-docker compose up --build
-docker compose down -v
-```
-
-Worker image:
-
-```bash
-docker build -t zip-buildserver-worker-node-maven:local worker-images/node-maven
-```
-
-## 15. Risks and Mitigations
-
-### Risk: Docker socket access is powerful
-
-Mitigations:
-
-- Document clearly.
-- Deploy on a dedicated host.
-- Keep the service admin-only initially.
-- Encapsulate Docker integration behind an interface.
-- Avoid mounting secrets into worker containers.
-
-### Risk: Uploaded code is malicious
-
-Mitigations:
-
-- Validate archives.
-- Run in isolated containers.
-- Apply resource limits and timeouts.
-- Avoid exposing secrets.
-- Restrict network access where practical.
-- Delete workspaces after runs.
-
-### Risk: Logs are too large for assistant use
-
-Mitigations:
-
-- Store full logs as artifacts.
-- Return concise structured summaries.
-- Add log truncation and failure extraction.
-
-### Risk: Project detection is incomplete
-
-Mitigations:
-
-- Start with Maven and Node.
-- Clearly report unsupported structures.
-- Add plans incrementally.
-
-### Risk: Dependency downloads are slow or unsafe
-
-Mitigations:
-
-- Make network mode explicit.
-- Add dependency cache later.
-- Consider registry allowlists or proxying.
-
-### Risk: Long-running builds consume server resources
-
-Mitigations:
-
-- Queue jobs.
-- Enforce CPU, memory, disk, and time limits.
-- Add concurrency limits.
-
-## 16. Future Enhancements
-
-Potential future features:
-
-```text
-Git repository verification mode
-patch/diff verification mode
-GitHub pull request integration
-S3-compatible artifact storage
-multi-user accounts and RBAC
-per-user quotas
-Kubernetes Jobs execution backend
-Podman/rootless execution backend
-dependency cache management
-private registry credentials with secret isolation
-richer failure classification
-compare two verification runs
-webhook notification on completion
-downloadable verification report
-Custom GPT Action package generator
-```
-
-## 17. Definition of Done for First Release
-
-The first release is done when:
-
-1. A user can run the service with Docker Compose.
-2. A user can create a session from the UI.
-3. A user can upload a zip file.
-4. The service validates the archive safely.
-5. The service detects Maven and Node projects.
-6. The service runs predefined verification commands in a worker container.
-7. The service returns passed, failed, timed-out, rejected, and incomplete statuses.
-8. The UI shows command-level results and failure summaries.
-9. Full logs are stored separately and accessible when authorized.
-10. The assistant-friendly API returns compact structured summaries.
-11. OpenAPI output is available for configuring a Custom GPT Action.
-12. Basic static-token authentication is available.
-13. Retention cleanup removes expired packages and artifacts.
-14. Documentation explains install, usage, security model, and limitations.
-15. `./scripts/verify-local.sh` demonstrates the complete flow.
+The implementation assistant should complete exactly one unchecked step per response.

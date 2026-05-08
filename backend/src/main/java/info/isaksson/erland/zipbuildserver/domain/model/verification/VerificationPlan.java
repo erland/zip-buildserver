@@ -1,5 +1,6 @@
 package info.isaksson.erland.zipbuildserver.domain.model.verification;
 
+import info.isaksson.erland.zipbuildserver.domain.model.NetworkMode;
 import info.isaksson.erland.zipbuildserver.domain.model.project.ProjectTechnology;
 
 import java.util.List;

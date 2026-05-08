@@ -26,6 +26,9 @@ class SessionResourceTest {
                 .body("id", notNullValue())
                 .body("label", equalTo("Assistant verification run"))
                 .body("status", equalTo("OPEN"))
+                .body("createdAt", notNullValue())
+                .body("closedAt", equalTo(null))
+                .body("createdBy", equalTo(null))
                 .body("retentionPolicy", equalTo("default"))
                 .extract().path("id");
 
@@ -34,21 +37,34 @@ class SessionResourceTest {
                 .then()
                 .statusCode(200)
                 .body("id", equalTo(sessionId))
-                .body("status", equalTo("OPEN"));
+                .body("label", equalTo("Assistant verification run"))
+                .body("status", equalTo("OPEN"))
+                .body("createdAt", notNullValue())
+                .body("closedAt", equalTo(null))
+                .body("createdBy", equalTo(null))
+                .body("retentionPolicy", equalTo("default"));
 
         given()
                 .when().get("/api/sessions")
                 .then()
                 .statusCode(200)
-                .body("sessions.findAll { it.id == '%s' }".formatted(sessionId), hasSize(1));
+                .body("sessions.findAll { it.id == '%s' }".formatted(sessionId), hasSize(1))
+                .body("sessions.find { it.id == '%s' }.label".formatted(sessionId), equalTo("Assistant verification run"))
+                .body("sessions.find { it.id == '%s' }.status".formatted(sessionId), equalTo("OPEN"))
+                .body("sessions.find { it.id == '%s' }.createdAt".formatted(sessionId), notNullValue())
+                .body("sessions.find { it.id == '%s' }.retentionPolicy".formatted(sessionId), equalTo("default"));
 
         given()
                 .when().post("/api/sessions/{sessionId}/close", sessionId)
                 .then()
                 .statusCode(200)
                 .body("id", equalTo(sessionId))
+                .body("label", equalTo("Assistant verification run"))
                 .body("status", equalTo("CLOSED"))
-                .body("closedAt", notNullValue());
+                .body("createdAt", notNullValue())
+                .body("closedAt", notNullValue())
+                .body("createdBy", equalTo(null))
+                .body("retentionPolicy", equalTo("default"));
     }
 
     @Test

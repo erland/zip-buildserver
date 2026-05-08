@@ -9,9 +9,8 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class DockerCommandExecutorTest {
+class DockerRunCommandBuilderTest {
     @TempDir
     Path workspace;
 
@@ -25,7 +24,7 @@ class DockerCommandExecutorTest {
                 4096,
                 workspace.getParent().toString(),
                 workspace.getParent().toString());
-        DockerCommandExecutor executor = new DockerCommandExecutor(limits);
+        DockerRunCommandBuilder builder = new DockerRunCommandBuilder(limits, new DockerWorkspacePathMapper(limits));
         CommandExecutionRequest request = new CommandExecutionRequest(
                 "maven-test",
                 workspace,
@@ -33,18 +32,27 @@ class DockerCommandExecutorTest {
                 "mvn test",
                 Duration.ofMinutes(10));
 
-        List<String> command = executor.dockerRunCommand(request, "zip-buildserver-test");
+        List<String> command = builder.build(request, "zip-buildserver-test");
 
-        assertEquals("docker", command.get(0));
-        assertTrue(command.contains("--rm"));
-        assertTrue(command.contains("--memory"));
-        assertTrue(command.contains("2g"));
-        assertTrue(command.contains("--cpus"));
-        assertTrue(command.contains("2"));
-        assertTrue(command.contains("--network"));
-        assertTrue(command.contains("bridge"));
-        assertTrue(command.contains(workspace.toAbsolutePath().normalize() + ":/workspace:rw"));
-        assertTrue(command.contains("/workspace/backend"));
-        assertEquals("mvn test", command.get(command.size() - 1));
+        assertEquals(List.of(
+                "docker",
+                "run",
+                "--rm",
+                "--name",
+                "zip-buildserver-test",
+                "--network",
+                "bridge",
+                "--memory",
+                "2g",
+                "--cpus",
+                "2",
+                "-v",
+                workspace.toAbsolutePath().normalize() + ":/workspace:rw",
+                "-w",
+                "/workspace/backend",
+                "zip-buildserver-worker-node-maven:local",
+                "/bin/sh",
+                "-lc",
+                "mvn test"), command);
     }
 }

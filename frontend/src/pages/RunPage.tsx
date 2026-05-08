@@ -4,20 +4,9 @@ import { CommandResultTable } from '../components/CommandResultTable';
 import { FailureSummaryCard } from '../components/FailureSummaryCard';
 import { LogExcerptPanel } from '../components/LogExcerptPanel';
 import { RunStatusBadge } from '../components/RunStatusBadge';
+import { ErrorCard, LoadingCard, MissingResourceCard, PageCard, PageLayout } from '../components/PageState';
 import { useRun, useRunSummary } from '../api/runs';
-import styles from './Page.module.css';
-
-function formatDuration(durationMillis: number | null | undefined): string {
-  if (durationMillis == null || Number.isNaN(durationMillis)) {
-    return '—';
-  }
-
-  if (durationMillis < 1000) {
-    return `${durationMillis} ms`;
-  }
-
-  return `${(durationMillis / 1000).toFixed(1)} s`;
-}
+import { formatDuration } from '../utils/format';
 
 export function RunPage() {
   const { runId } = useParams();
@@ -25,33 +14,21 @@ export function RunPage() {
   const summaryQuery = useRunSummary(runId);
 
   if (!runId) {
-    return (
-      <section className={styles.page}>
-        <div className={styles.card}>
-          <h2>Missing run</h2>
-          <Link to="/">Create a new session</Link>
-        </div>
-      </section>
-    );
+    return <MissingResourceCard resourceName="run" linkTo="/" linkLabel="Create a new session" />;
   }
 
   if (runQuery.isLoading) {
-    return (
-      <section className={styles.page}>
-        <div className={styles.card}>Loading run…</div>
-      </section>
-    );
+    return <LoadingCard message="Loading run…" />;
   }
 
   if (runQuery.isError || !runQuery.data) {
     return (
-      <section className={styles.page}>
-        <div className={styles.card}>
-          <h2>Could not load run</h2>
-          <p>Check that the run exists and that the backend is running.</p>
-          <Link to="/">Create a new session</Link>
-        </div>
-      </section>
+      <ErrorCard
+        title="Could not load run"
+        message="Check that the run exists and that the backend is running."
+        linkTo="/"
+        linkLabel="Create a new session"
+      />
     );
   }
 
@@ -60,8 +37,8 @@ export function RunPage() {
   const summary = summaryQuery.data;
 
   return (
-    <section className={styles.page}>
-      <div className={styles.card}>
+    <PageLayout>
+      <PageCard>
         <RunStatusBadge status={run.status} />
         <h2>Verification run</h2>
         <p>Run ID: <code>{run.id}</code></p>
@@ -70,31 +47,31 @@ export function RunPage() {
         <p>Network mode: {run.networkMode ?? 'Not recorded'}</p>
         <p>Duration: {formatDuration(run.durationMillis)}</p>
         {run.summary ? <p>{run.summary}</p> : null}
-      </div>
+      </PageCard>
 
       {summary ? (
-        <div className={styles.card}>
+        <PageCard>
           <h2>Summary</h2>
           <p>{summary.summary ?? 'No summary is available yet.'}</p>
           <p>Commands run: {(summary.commandsRun ?? []).length > 0 ? (summary.commandsRun ?? []).join(', ') : 'None yet'}</p>
           <FailureSummaryCard summary={summary} />
-        </div>
+        </PageCard>
       ) : null}
 
-      <div className={styles.card}>
+      <PageCard>
         <h2>Command results</h2>
         <CommandResultTable commands={commands} />
-      </div>
+      </PageCard>
 
-      <div className={styles.card}>
+      <PageCard>
         <h2>Log excerpts</h2>
         <LogExcerptPanel commands={commands} />
-      </div>
+      </PageCard>
 
-      <div className={styles.card}>
+      <PageCard>
         <h2>Artifacts</h2>
         <ArtifactList runId={run.id} />
-      </div>
-    </section>
+      </PageCard>
+    </PageLayout>
   );
 }

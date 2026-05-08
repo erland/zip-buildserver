@@ -1,11 +1,11 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { PackageUploadDropzone } from '../components/PackageUploadDropzone';
 import { PollingRunStatus } from '../components/PollingRunStatus';
+import { ErrorCard, LoadingCard, MissingResourceCard, PageCard, PageLayout } from '../components/PageState';
 import { StatusBadge } from '../components/StatusBadge';
 import { useCreateRun, useSessionRuns } from '../api/runs';
 import { useSession } from '../api/sessions';
-import styles from './Page.module.css';
 
 export function SessionPage() {
   const { sessionId } = useParams();
@@ -24,33 +24,21 @@ export function SessionPage() {
   }
 
   if (!sessionId) {
-    return (
-      <section className={styles.page}>
-        <div className={styles.card}>
-          <h2>Missing session</h2>
-          <Link to="/">Create a new session</Link>
-        </div>
-      </section>
-    );
+    return <MissingResourceCard resourceName="session" linkTo="/" linkLabel="Create a new session" />;
   }
 
   if (sessionQuery.isLoading) {
-    return (
-      <section className={styles.page}>
-        <div className={styles.card}>Loading session…</div>
-      </section>
-    );
+    return <LoadingCard message="Loading session…" />;
   }
 
   if (sessionQuery.isError) {
     return (
-      <section className={styles.page}>
-        <div className={styles.card}>
-          <h2>Could not load session</h2>
-          <p>Check that the session exists and that the backend is running.</p>
-          <Link to="/">Create a new session</Link>
-        </div>
-      </section>
+      <ErrorCard
+        title="Could not load session"
+        message="Check that the session exists and that the backend is running."
+        linkTo="/"
+        linkLabel="Create a new session"
+      />
     );
   }
 
@@ -63,31 +51,27 @@ export function SessionPage() {
         : null;
 
   if (!session) {
-    return (
-      <section className={styles.page}>
-        <div className={styles.card}>Session data was unavailable.</div>
-      </section>
-    );
+    return <LoadingCard message="Session data was unavailable." />;
   }
 
   return (
-    <section className={styles.page}>
-      <div className={styles.card}>
+    <PageLayout>
+      <PageCard>
         <StatusBadge label={session.status} />
         <h2>{session.label || 'Verification session'}</h2>
         <p>Session ID: <code>{session.id}</code></p>
         <p>Created: {new Date(session.createdAt).toLocaleString()}</p>
-      </div>
+      </PageCard>
 
-      <div className={styles.card}>
+      <PageCard>
         <h2>Package upload</h2>
         <p>Upload a zip package. After upload, the frontend starts a verification run and opens the run report.</p>
         <PackageUploadDropzone sessionId={session.id} onUploadSuccess={handleStartRun} />
         {createRun.isPending ? <p role="status">Starting verification run…</p> : null}
         {createRunError ? <p role="alert">{createRunError}</p> : null}
-      </div>
+      </PageCard>
 
-      <div className={styles.card}>
+      <PageCard>
         <h2>Runs</h2>
         {runsQuery.isLoading ? <p>Loading runs…</p> : null}
         {runsQuery.isError ? <p>Could not load runs.</p> : null}
@@ -101,7 +85,7 @@ export function SessionPage() {
             ))}
           </ul>
         ) : null}
-      </div>
-    </section>
+      </PageCard>
+    </PageLayout>
   );
 }
